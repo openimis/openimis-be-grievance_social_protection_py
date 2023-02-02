@@ -1,0 +1,21 @@
+{
+    "banks.mainMenu" : "Banks",
+    "banks.menu.my_entities" : "My Banks",
+    "Banks.Banks.Table": "Banks ({count})",
+    "Banks.bankName" : "Bank Name",
+    "Banks.bankEmail" : "Bank Email",
+    "Banks.bankAddress" : "Bank Address",
+    "Banks.bankSwitchCode" : "Switch Code",
+    "Banks.bankContactDetail" : "Contact",
+    "Banks.AddBankForm.bankName" : "Bank Name",
+    "Banks.AddBankForm.bankEmail": "Bank Email",
+    "Banks.AddBankForm.bankAddress" : "Bank Address",
+    "Banks.AddBankForm.bankSwitchCode" : "Bank Switch Code",
+    "Banks.AddBankForm.bankContactDetail" : "Contact",
+    "menu.add_bank" : "Add Bank",
+    "Banks.title" : "Add Bank",
+    "menu.banks" : "Banks",
+    "addNewBankTooltip" : "Add New Bank"
+
+    
+}
