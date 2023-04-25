@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import *
-
 # Register your models here.
-admin.site.register(Grievance)
+from .models import Ticket,Category,TicketAttachment
+
+admin.site.register(Ticket)
+admin.site.register(TicketAttachment)
+admin.site.register(Category)
+

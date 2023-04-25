@@ -1,48 +1,214 @@
+from django.conf import settings
+from graphql import ResolveInfo
 from django.db import models
-import uuid
 from core import models as core_models
-from insuree.models import *
-
-grievance_type = (
-    ('Inquiry','Inquiry'),
-    ('Problem', 'Problem'),
-    ('General', 'General'),
-)
-
-status = (
-    ('Open','Open'),
-    ('Close', 'Close'),
-    ('In Progress', 'In Progress'),
-)
+from core import fields, TimeUtils
+from insuree import models as insuree_models
+from location import models as location_models
+from datetime import datetime as py_datetime
+import core
 
 # Create your models here.
-class Grievance(core_models.VersionedModel):
-    id = models.AutoField(
-        db_column='grievanceID', primary_key=True)
-        
-    uuid = models.CharField(db_column='grievanceUUID', max_length=36, default=uuid.uuid4, unique=True)
+from django.utils.translation import gettext_lazy as _
+import uuid
+from core import models as core_models
 
-    grievance_code = models.CharField(max_length=15, db_column='grievanceCode', unique=True, null=True)
-    insuree = models.ForeignKey(Insuree, on_delete=models.DO_NOTHING, null=True)
-    creation_date = models.DateField(db_column='creationDate', blank=True, null=True)
-    status = models.CharField(db_column='Status', max_length=36, choices=status, default='Open')
-    description = models.CharField(db_column='description', max_length=255, blank=True, null=True)
-    type_of_grievance = models.CharField(db_column='typeOfGrievance', max_length=36, choices=grievance_type, default='General')
-    comments = models.CharField(db_column='comments', max_length=255, blank=True, null=True)
-    created_by = models.CharField(db_column='createdBy', max_length=255, blank=True, null=True)
-    close_date = models.DateField(db_column='closeDate', blank=True, null=True)
+
+
+# Create your models here.
+
+#Categort Model
+class Category(core_models.VersionedModel, core_models.ExtendableModel):
+
+   id = models.AutoField(db_column='CategoryId', primary_key=True)
+   uuid = models.CharField(db_column='CategoryUUID', max_length=36, default=uuid.uuid4, unique=True)
+   category_title = models.CharField(db_column='CategoryTitle', max_length= 100, blank = True, null = True)
+   slug = models.SlugField(db_column= "Slug", 
+                           max_length= 50, 
+                           unique= True,
+                           help_text= "This is a label for each title which makes it easily identified",
+                           blank = True,
+                           null = True)
+   
+
+   def __str__(self):
+        return str(self.category_title)
+
+   
+   class Meta:
+        managed = True
+        db_table = 'tblCategory'
+
+    
+   @classmethod
+   def filter_queryset(cls, queryset=None):
+        if queryset is None:
+            queryset = cls.objects.all() 
+        queryset = queryset.filter(*core.filter_validity())
+        return queryset
+    
+
+   @classmethod
+   def get_queryset(cls, queryset, user):
+        queryset = cls.filter_queryset(queryset)
+        if isinstance(user, ResolveInfo):
+            user = user.context.user
+        if settings.ROW_SECURITY and user.is_anonymous:
+            return queryset.filter(id=None)
+        if settings.ROW_SECURITY:
+            pass
+        return queryset
+   
+#Ticket models
+
+class Ticket(core_models.VersionedModel,):
+
+
+    """
+    User crating of ticket 
+    """
+    STATUS_CHOICES = (
+        ('Waiting','Waiting'),
+        ('Todo', 'Todo'),
+        ('Inprogress', 'Inprogress'),
+        ('Review', 'Review'),
+        ('CLOSE', 'CLOSE'),
+    )
+
+
+
+    PRIORITY_CHOICES = (
+        ('Critical','Critical'),
+        ('High', 'high'),
+        ('Normal', 'Normal'),
+        ('Low', 'Low'),
+    )
+
+   
+    id = models.AutoField(db_column='TicketId', primary_key=True)
+    uuid = models.CharField(db_column='TicketUUID', max_length=36, default=uuid.uuid4, unique=True)
+    ticket_title = models.CharField(db_column='TicketTitle', max_length= 255, blank= True, null= True )
+    ticket_code = models.CharField(db_column='TicketCode', max_length=8, unique=True, blank=True, null= True)
+    ticket_description = models.TextField(db_column='Description', max_length= 255, blank= True, null = True )
+    category = models.ForeignKey(Category, models.DO_NOTHING, db_column= 'CategoryID', blank=True, null = True, related_name="tickets")
+    insuree = models.ForeignKey(insuree_models.Insuree, on_delete= models.DO_NOTHING, db_column='InsureeID', blank = True, null = True, related_name="tickets" )
+    name = models.CharField(db_column= "Name", max_length= 100, blank= True, null= True )
+    phone = models.IntegerField(db_column='PhoneNumber', blank=True, null=True)
+    email = models.CharField(db_column="Email", max_length= 200, blank= True, null= True)
+    date_of_incident = models.DateField(db_column= "Date_of_Incident", blank = True, null = True)
+    name_of_complainant = models.CharField(db_column= "Name of Complainanat", max_length= 100, blank = True, null = True)
+    witness = models.CharField(db_column= "Witness", max_length= 255, blank = True, null = True)
+    event_location = models.ForeignKey(location_models.Location, on_delete= models.DO_NOTHING, db_column='EventLocationId', blank = True, null = True, related_name="event_location" )
+    insuree_location = models.CharField(db_column= "insureeLocation", max_length= 50, blank = True, null = True)
+    resolution = models.CharField(db_column= "Resolution", max_length= 255, blank = True, null = True)
+    ticket_status = models.TextField( db_column='TicketStatus', choices = STATUS_CHOICES, max_length= 15, default= "Waiting")
+    ticket_priority = models.CharField( db_column='TicketPriority', choices=PRIORITY_CHOICES, max_length= 15, default= "Normal",
+        help_text= ( 'how critical is the problem C = Critical and L = Low '),
+    )
+    ticket_dueDate = models.DateField(db_column= "Tciket_DueDate", blank = True, null = True)
+
+    date_submitted = fields.DateField(db_column= "Date_Submission", blank= True, default= py_datetime.now)
+
+
+
+    def __str__(self):
+        return f"{self.ticket_title}"
+    
 
     class Meta:
         managed = True
-        db_table = 'tblGrievance'
+        db_table = 'tblTicket'
+
+    
+    @classmethod
+    def filter_queryset(cls, queryset=None):
+        if queryset is None:
+            queryset = cls.objects.all() 
+        queryset = queryset.filter(*core.filter_validity())
+        return queryset
+
+    @classmethod
+    def get_queryset(cls, queryset, user):
+        queryset = cls.filter_queryset(queryset)
+        if isinstance(user, ResolveInfo):
+            user = user.context.user
+        if settings.ROW_SECURITY and user.is_anonymous:
+            return queryset.filter(id=None)
+        if settings.ROW_SECURITY:
+            pass
+        return queryset
+    
+
+# Ticket Attachmnet Module
+
+class TicketAttachment (core_models.UUIDModel, core_models.UUIDVersionedModel,):
+   
+   uuid = models.CharField(db_column='AttachmentUUID', max_length=36, default=uuid.uuid4, unique=True)
+   ticket = models.ForeignKey(
+        Ticket, models.DO_NOTHING, related_name='attachment', db_column= 'TicketId')
+   filename = models.TextField(max_length = 1000, blank=True, null=True)
+   mime_type = models.TextField(max_length = 255, blank=True, null=True)
+   url = models.TextField(max_length = 1000, blank=True, null=True)
+   document = models.TextField(blank=True, null=True)
+   date = fields.DateField(blank=True, default=py_datetime.now)
+   
+   def __str__(self):
+        return f"{self.filename}"
+   
+
+   class Meta:
+        managed = True
+        db_table = 'tblTicketAttachment'
+    
+   @classmethod
+   def filter_queryset(cls, queryset=None):
+        if queryset is None:
+            queryset = cls.objects.all() 
+        queryset = queryset.filter(*core.filter_validity())
+        return queryset
+
+   @classmethod
+   def get_queryset(cls, queryset, user):
+        queryset = cls.filter_queryset(queryset)
+        if isinstance(user, ResolveInfo):
+            user = user.context.user
+        if settings.ROW_SECURITY and user.is_anonymous:
+            return queryset.filter(id=None)
+        if settings.ROW_SECURITY:
+            pass
+        return queryset
 
 
 
-class GrievanceMutation(core_models.UUIDModel, core_models.ObjectMutation):
-    Grievance = models.ForeignKey(Grievance, models.DO_NOTHING, related_name='mutations')
-    mutation = models.ForeignKey(core_models.MutationLog, models.DO_NOTHING, related_name='Grievance')
+class TicketMutation(core_models.UUIDModel, core_models.ObjectMutation):
+    ticket = models.ForeignKey(Ticket, models.DO_NOTHING,
+                              related_name='mutations')
+    mutation = models.ForeignKey(
+        core_models.MutationLog, models.DO_NOTHING, related_name='tickets')
+ 
+    class Meta:
+        managed = True
+        db_table = "ticket_TicketMutation"
+
+
+class CategoryMutation(core_models.UUIDModel, core_models.ObjectMutation):
+    category  = models.ForeignKey(Category, models.DO_NOTHING,
+                              related_name='mutations')
+    mutation = models.ForeignKey(
+        core_models.MutationLog, models.DO_NOTHING, related_name='category')
 
     class Meta:
         managed = True
-        db_table = "GrievanceMutation"
+        db_table = "ticket_CategoryMutation"
+
+class AttachmentMutation(core_models.UUIDModel, core_models.ObjectMutation):
+    ticket = models.ForeignKey(TicketAttachment, models.DO_NOTHING,
+                              related_name='mutations')
+    mutation = models.ForeignKey(
+        core_models.MutationLog, models.DO_NOTHING, related_name='attachment')
+ 
+    class Meta:
+        managed = True
+        db_table = "ticket_AttachmentMutation"
+
 

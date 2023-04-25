@@ -1,37 +1,46 @@
-from configparser import DuplicateOptionError
-from multiprocessing.reduction import duplicate
+from django.conf import settings
+import graphene
+from core.schema import OrderedDjangoFilterConnectionField,OpenIMISMutation
+from core import ExtendedConnection 
 from core.schema import signal_mutation_module_validate
-from django.db.models import Q
-from django.core.exceptions import PermissionDenied
+from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
+from ticket.models import Ticket
+from .apps import TicketConfig
+from django.db.models import Q
 import graphene_django_optimizer as gql_optimizer
-from django.utils.translation import gettext as _
-from location.apps import LocationConfig
-from core.schema import OrderedDjangoFilterConnectionField, OfficerGQLType
-from policy.models import Policy
+from .gql_quries import *
+from .gql_mutations import *
 
-# We do need all queries and mutations in the namespace here.
-from .gql_queries import *  # lgtm [py/polluting-import]
-from .gql_mutation import *  # lgtm [py/polluting-import]
 
 class Query(graphene.ObjectType):
-    grievance = OrderedDjangoFilterConnectionField(
-        GrievanceGQLType,
+
+    tickets = OrderedDjangoFilterConnectionField(
+        TicketGQLType,
+        orderBy=graphene.List(of_type=graphene.String),
         show_history=graphene.Boolean(),
         client_mutation_id=graphene.String(),
-        orderBy=graphene.List(of_type=graphene.String),
-    )
-    grievancesStr = OrderedDjangoFilterConnectionField(
-        GrievanceGQLType,
-        str=graphene.String(),
     )
 
-def resolve_grievances(self, info, **kwargs):
+    category = OrderedDjangoFilterConnectionField(
+        CategoryTicketGQLType,
+        client_mutation_id=graphene.String(),
+        orderBy=graphene.List(of_type=graphene.String),
+        show_history = graphene.Boolean(),
+    )
+
+    ticketsStr = OrderedDjangoFilterConnectionField(
+        TicketGQLType,
+        str=graphene.String(),
+    )
+    ticket_attachments = DjangoFilterConnectionField(TicketAttachmentGQLType)
+
+    def resolve_ticket(self, info,  **kwargs):
         """
         Extra steps to perform when Scheme is queried
         """
         # Check if user has permission
-        if not info.context.user.has_perms(GrievanceConfig.gql_query_grievance_perms):
+        if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
             raise PermissionDenied(_("unauthorized"))
         filters = []
         
@@ -43,15 +52,16 @@ def resolve_grievances(self, info, **kwargs):
         client_mutation_id = kwargs.get("client_mutation_id", None)
         if client_mutation_id:
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
+        
+        return gql_optimizer.query(Ticket.objects.filter(*filters).all(), info)
+    
 
-        return gql_optimizer.query(Grievance.objects.filter(*filters).all(), info)
-
-def resolve_grievancesStr(self, info, **kwargs):
+    def resolve_ticketsStr(self, info, **kwargs):
         """
         Extra steps to perform when Scheme is queried
         """
         # Check if user has permission
-        if not info.context.user.has_perms(GrievanceConfig.gql_query_grievance_perms):
+        if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
             raise PermissionDenied(_("unauthorized"))
         filters = []
         
@@ -68,47 +78,51 @@ def resolve_grievancesStr(self, info, **kwargs):
         # if str is not None:
         #     filters += [Q(code__icontains=str) | Q(name__icontains=str)]
 
-        return gql_optimizer.query(Grievance.objects.filter(*filters).all(), info)
+        return gql_optimizer.query(Ticket.objects.filter(*filters).all(), info)
+    
+
+    def resolve_claim_attachments(self, info, **kwargs):
+        if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
+            raise PermissionDenied(_("unauthorized"))
 
 
+ 
 class Mutation(graphene.ObjectType):
-    """
-    QraphQL Mutation for schemes
-    """
-    create_grievance = CreateGrievanceMutation.Field()
-    update_grievance = UpdateGrievanceMutation.Field()
-    delete_grievancek = DeleteGrievanceMutation.Field()
+    create_Ticket = CreateTicketMutation.Field()
+    update_Ticket = UpdateTicketMutation.Field()
+    delete_Ticket = DeleteTicketMutation.Field()
+    create_category = CreateCategoryMutation.Field()
+    update_category = UpdateCategoryMutation.Field()
+    delete_ticket = DeleteCategoryMutation.Field()
+    create_ticket_attachment = CreateTicketAttachmentMutation.Field()
+    
 
-
-def on_grievance_mutation(kwargs, k='uuid'):
+def on_bank_mutation(kwargs, k='uuid'):
     """
     This method is called on signal binding for scheme mutation
     """
 
     # get uuid from data
-    grievance_uuid = kwargs['data'].get('uuid', None)
-    if not grievance_uuid:
+    ticket_uuid = kwargs['data'].get('uuid', None)
+    if not ticket_uuid:
         return []
     # fetch the scheme object by uuid
-    impacted_grievance = Grievance.objects.get(Q(uuid=grievance_uuid))
+    impacted_ticket = Ticket.objects.get(Q(uuid=ticket_uuid))
     # Create a mutation object
-    GrievanceMutation.objects.create(grievance=impacted_grievance, mutation_id=kwargs['mutation_log_id'])
+    TicketMutation.objects.create(Bank=impacted_ticket, mutation_id=kwargs['mutation_log_id'])
     return []
 
-def on_grievance_mutation(kwargs):
-    """
-    This method is called on signal binding for scheme mutation 
-    of multiple records
-    """
-    uuids = kwargs['data'].get('uuids', [])
+def on_ticket_mutation(**kwargs):
+    uuids = kwargs["data"].get("uuids", [])
     if not uuids:
-        uuid = kwargs['data'].get('uuid', None)
+        uuid = kwargs["data"].get("claim_uuid", None)
         uuids = [uuid] if uuid else []
     if not uuids:
         return []
-    impacted_grievances = Grievance.objects.filter(uuid_in=uuids).all()
-    for grievance in impacted_grievances:
-        Grievance.objects.create(
-            Grievance=grievance, mutation_id=kwargs['mutation_log_id'])
+    impacted_tickets = Ticket.objects.filter(uuid__in=uuids).all()
+    for ticket in impacted_tickets:
+        TicketMutation.objects.create(Ticket=ticket, mutation_id=kwargs["mutation_log_id"])
     return []
-    
+
+def bind_signals():
+    signal_mutation_module_validate["ticket"].connect(on_ticket_mutation)
