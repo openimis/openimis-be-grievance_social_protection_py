@@ -1,6 +1,6 @@
 import graphene
 from graphene_django import DjangoObjectType
-from ticket.models import Ticket, Category, TicketAttachment
+from grievance.models import Ticket, Category, TicketAttachment
 from insuree.schema import InsureeGQLType
 from location.schema import LocationGQLType
 from core import prefix_filterset, ExtendedConnection, filter_validity

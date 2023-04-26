@@ -5,7 +5,7 @@ from core import ExtendedConnection
 from core.schema import signal_mutation_module_validate
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
-from ticket.models import Ticket
+from grievance.models import Ticket
 from .apps import TicketConfig
 from django.db.models import Q
 import graphene_django_optimizer as gql_optimizer
@@ -125,4 +125,4 @@ def on_ticket_mutation(**kwargs):
     return []
 
 def bind_signals():
-    signal_mutation_module_validate["ticket"].connect(on_ticket_mutation)
+    signal_mutation_module_validate["grievance"].connect(on_ticket_mutation)

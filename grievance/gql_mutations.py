@@ -8,7 +8,7 @@ from graphene.relay import mutation
 from graphene import InputObjectType
 from core import filter_validity
 from core.schema import OpenIMISMutation
-from ticket.models import Ticket , TicketMutation, Category, CategoryMutation,TicketAttachment,AttachmentMutation
+from grievance.models import Ticket , TicketMutation, Category, CategoryMutation,TicketAttachment,AttachmentMutation
 from insuree.models import Insuree
 from location.models import Location
 from django.contrib.auth.models import AnonymousUser
