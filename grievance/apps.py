@@ -4,10 +4,10 @@ MODULE_NAME = "grievance"
 
 DEFAULT_CFG = {
     "default_validations_disabled": False,
-    "gql_query_tickets_perms": ["111001"],
-    "gql_mutation_create_tickets_perms": ["111002"],
+    "gql_query_tickets_perms": ["111041"],
+    "gql_mutation_create_tickets_perms": ["130002"],
     "gql_mutation_update_tickets_perms": ["111003"],
-    "gql_mutation_delete_tickets_perms": ["111004"],
+    "gql_mutation_delete_tickets_perms": ["111044"],
     "gql_query_categorys_perms": ["101001"],
     "gql_mutation_create_categorys_perms": ["101002"],
     "gql_mutation_update_categorys_perms": ["101003"],

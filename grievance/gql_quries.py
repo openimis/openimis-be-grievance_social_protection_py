@@ -1,6 +1,6 @@
 import graphene
 from graphene_django import DjangoObjectType
-from grievance.models import Ticket, Category, TicketAttachment
+from ticket.models import Ticket, Category, TicketAttachment
 from insuree.schema import InsureeGQLType
 from location.schema import LocationGQLType
 from core import prefix_filterset, ExtendedConnection, filter_validity
@@ -19,9 +19,10 @@ class CategoryTicketGQLType(DjangoObjectType):
         interfaces = (graphene.relay.Node,)
         filter_fields = {
             "id":["exact"],
+            "uuid": ['exact'], 
             "uuid":["exact"],
-            "category_title":["exact"],
-            "slug":["exact"]
+            "category_title":["exact", "istartswith", "icontains", "iexact"],
+            "slug":["exact", "istartswith", "icontains", "iexact"]
         }
         connection_class = ExtendedConnection
 
@@ -60,7 +61,6 @@ class TicketGQLType (DjangoObjectType):
             "ticket_priority": ["exact"],
             "ticket_dueDate":["exact"],
             "date_submitted":["exact"],
-            "insuree_location":["exact"],
             **prefix_filterset("category__", CategoryTicketGQLType._meta.filter_fields),
             **prefix_filterset("insuree__", InsureeGQLType._meta.filter_fields),
             # **prefix_filterset("location__", LocationGQLType._meta.filter_fields)
@@ -83,7 +83,6 @@ class TicketAttachmentGQLType(DjangoObjectType):
         interfaces = (graphene.relay.Node,)
         filter_fields = {
             "id": ["exact"],
-            "uuid": ['exact'],
             "filename": ["exact", "icontains"],
             "mime_type": ["exact", "icontains"],
             "url": ["exact", "icontains"],

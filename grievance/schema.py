@@ -5,7 +5,7 @@ from core import ExtendedConnection
 from core.schema import signal_mutation_module_validate
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
-from grievance.models import Ticket
+from ticket.models import Ticket
 from .apps import TicketConfig
 from django.db.models import Q
 import graphene_django_optimizer as gql_optimizer
@@ -34,6 +34,24 @@ class Query(graphene.ObjectType):
         str=graphene.String(),
     )
     ticket_attachments = DjangoFilterConnectionField(TicketAttachmentGQLType)
+    
+    ticket_details = OrderedDjangoFilterConnectionField(
+        TicketGQLType,
+        ticket_uuid=graphene.String(required=True),
+        # showHistory=graphene.Boolean(),
+        orderBy=graphene.List(of_type=graphene.String),
+    )
+    
+    def resolve_ticket_details(self, info, **kwargs):
+        # if not info.context.user.has_perms(ServiceProviderConfig.gql_query_service_provider_perms):
+        #     raise PermissionDenied(_("unauthorized"))
+        ticket = Ticket.objects.get(
+            Q(uuid=kwargs.get('ticket_uuid')))
+        
+        return Ticket.objects.filter(
+            Q(uuid=ticket.uuid),
+            *filter_validity(**kwargs)
+        ).order_by('ticket_title', 'ticket_code',)
 
     def resolve_ticket(self, info,  **kwargs):
         """
@@ -95,7 +113,7 @@ class Mutation(graphene.ObjectType):
     update_category = UpdateCategoryMutation.Field()
     delete_ticket = DeleteCategoryMutation.Field()
     create_ticket_attachment = CreateTicketAttachmentMutation.Field()
-    
+    update_ticket_attachment = UpdateTicketAttachmentMutation.Field()
 
 def on_bank_mutation(kwargs, k='uuid'):
     """
@@ -125,4 +143,4 @@ def on_ticket_mutation(**kwargs):
     return []
 
 def bind_signals():
-    signal_mutation_module_validate["grievance"].connect(on_ticket_mutation)
+    signal_mutation_module_validate["ticket"].connect(on_ticket_mutation)

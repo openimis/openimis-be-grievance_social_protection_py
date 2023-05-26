@@ -1,14 +1,16 @@
+from os import path
 import pathlib
 from django.conf import settings
 import graphene
 import uuid
 import base64
 import logging
+import random
 from graphene.relay import mutation
 from graphene import InputObjectType
-from core import filter_validity
+from core import filter_validity,assert_string_length
 from core.schema import OpenIMISMutation
-from grievance.models import Ticket , TicketMutation, Category, CategoryMutation,TicketAttachment,AttachmentMutation
+from ticket.models import Ticket , TicketMutation, Category, CategoryMutation,TicketAttachment,AttachmentMutation
 from insuree.models import Insuree
 from location.models import Location
 from django.contrib.auth.models import AnonymousUser
@@ -16,8 +18,8 @@ from django.core.exceptions import ValidationError, PermissionDenied
 from .apps import TicketConfig
 from django.utils.translation import gettext_lazy as _
 from location.schema import UserDistrict
-from django.utils import timezone
 from django.db.models import Max
+from django.utils import timezone
 
 
 class CategoryInputType(OpenIMISMutation.Input):
@@ -27,27 +29,47 @@ class CategoryInputType(OpenIMISMutation.Input):
     category_title = graphene.String(required =False)
     slug = graphene.String(required = False)
 
+class TicketCodeInputType(graphene.String):
+
+    @staticmethod
+    def coerce_string(value):
+        assert_string_length(value, 8)
+        return value
+
+    serialize = coerce_string
+    parse_value = coerce_string
+
+    @staticmethod
+    def parse_literal(ast):
+        result = graphene.String.parse_literal(ast)
+        assert_string_length(result, 8)
+        return result
+
+
+
+
+
+
 class TicketInputType(OpenIMISMutation.Input):
 
     id = graphene.Int(required=False, read_only=True)
     uuid = graphene.String(required=False)
-    ticket_code = graphene.String(required = False)
+    ticket_code = graphene.String( required = False)
     ticket_title = graphene.String(required =False)
     ticket_description = graphene.String(required =False)
     category_uuid = graphene.String(required = False)
-    insuree_uuid = graphene.String(required=False)
+    insuree_uuid = graphene.String(required= False)
     name = graphene.String(required =False)
-    phone = graphene.Int(required =False)
+    phone = graphene.String(required =False)
     email = graphene.String(required = False)
-    event_location_uuid = graphene.String(required = False)
-    insuree_location = graphene.String(required = False)
+    # location_uuid = graphene.String(required = False)
     date_of_incident = graphene.Date(required = False)
     witness = graphene.String(required = False)
     name_of_complainant = graphene.String(required = False)
     resolution = graphene.String(required = False)
-    ticket_status = graphene.String(required=False)
-    ticket_priority = graphene.String(required=False)
-    ticket_dueDate = graphene.Date(required = False)
+    ticket_status = graphene.String(required = False)
+    ticket_priority = graphene.String(required = False)
+    ticket_dueDate = graphene.Date(required = False,)
     date_submitted = graphene.Date(required = False)
 
 
@@ -63,7 +85,7 @@ class BaseAttachmentInputType(BaseAttachment, OpenIMISMutation.Input):
     """
     Ticket attachment (without the document), used on its own
     """
-    ticket_uuid = graphene.String(required=True)
+    ticket_uuid = graphene.String(required=False)
 
 class Attachment(BaseAttachment):
     document = graphene.String(required=False)
@@ -80,7 +102,8 @@ class AttachmentInputType(Attachment, OpenIMISMutation.Input):
     """
     Ticket attachment, used on its own
     """
-    ticket_uuid = graphene.String(required=True)
+    ticket_uuid = graphene.String(required=False)
+
 
 def create_file(date, ticket_id, document):
     date_iso = date.isoformat()
@@ -99,27 +122,28 @@ def create_file(date, ticket_id, document):
     f.close()
     return file_path
 
-def create_attachment(ticket_id, data):
+
+def create_attachment (ticket_id, data):
     if "client_mutation_id" in data:
         data.pop('client_mutation_id')
     # Check if client_mutation_label is passed in data
     if "client_mutation_label" in data:
         data.pop('client_mutation_label')
-    data["ticket_id"] = ticket_id
+    data ['ticket_id'] = ticket_id
     now = timezone.now()
-    if TicketConfig.tickets_attachments_root_path:
-        # don't use data date as it may be updated by user afterwards!
+    if  TicketConfig.tickets_attachments_root_path:
         data['url'] = create_file(now, ticket_id, data.pop('document'))
     data['validity_from'] = now
     attachment = TicketAttachment.objects.create(**data)
-
     attachment.save()
     return attachment
-
+   
 
 def create_attachments(ticket_id, attachments):
+
     for attachment in attachments:
         create_attachment(ticket_id, attachment)
+
 
 def update_or_create_category(data, user):
     # Check if client_mutation_id is passed in data
@@ -150,7 +174,6 @@ def update_or_create_ticket(data, user):
     # Check if client_mutation_label is passed in data
     if "client_mutation_label" in data:
         data.pop('client_mutation_label')
-
 
     ticket_uuid = data.pop('uuid') if 'uuid' in data else None
     if ticket_uuid:
@@ -205,9 +228,7 @@ class CreateOrUpdateTicketMutation(OpenIMISMutation):
         # Check if user has permission
         if not user.has_perms(perms):
             raise PermissionDenied(_("unauthorized"))
-            
-            
-        
+
         last_ticket_code = Ticket.objects.aggregate(Max('ticket_code')).get('ticket_code__max')
         if last_ticket_code is None:
             last_ticket_code_numeric = 0
@@ -220,12 +241,17 @@ class CreateOrUpdateTicketMutation(OpenIMISMutation):
         if data.get('ticket_code', None) is None:
              data['ticket_code'] = new_ticket_code
         
-        
             
             
             
         
+       # Get the maximum ticket code from the database
         
+        
+        # if Ticket.objects.filter(ticket_code = data['ticket_code']).exists():
+        #     return [{
+        #             'message': _("tciket.mutation.duplicated_ticket_code") % {'ticket_code': data['ticket_code']},
+        #         }]
 
         # data['audit_user_id'] = user.id_for_audit
         from core.utils import TimeUtils
@@ -239,19 +265,16 @@ class CreateOrUpdateTicketMutation(OpenIMISMutation):
         #This create instance of insuree and category and location
         category = data.pop('category_uuid')
         insuree = data.pop('insuree_uuid')
-        event_location = data.pop('event_location_uuid')
         
         ticketcategory = Category.objects.get(uuid = category)
         ticketinsuree = Insuree.objects.get(uuid =insuree)
-        ticket_event_location = Location.objects.get(uuid =event_location)
     
 
         data['category'] = ticketcategory
         data['insuree'] = ticketinsuree
-        data['event_location'] = ticket_event_location
         
 
-        # calles the create and update method and returns the created record from the Bank object
+        # calles the create and update method and returns the created record from the Ticket object
         ticket = update_or_create_ticket(data, user)
         # log mutation through signal binding everytime a mutation occur
         TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, Ticket=ticket)
@@ -281,7 +304,7 @@ class CreateTicketMutation(CreateOrUpdateTicketMutation):
             return cls.do_mutate(TicketConfig.gql_mutation_create_tickets_perms,user, **data)
         except Exception as exc:
             return [{
-                'message': "Ticket mutation failed with exceptions",
+                'message': "Ticket mutation failed with exceptions" % {'ticket_code':data['ticket_code']},
                 'detail': str(exc)}]
 
        
@@ -309,9 +332,8 @@ class UpdateTicketMutation(CreateOrUpdateTicketMutation):
             return cls.do_mutate(TicketConfig.gql_mutation_update_tickets_perms,user, **data)
         except Exception as exc:
             return [{
-                'message': "Ticket mutation failed with exceptions",
+                'message': "Ticket mutation failed with exceptions" % {'ticket_code':data['ticket_code']},
                 'detail': str(exc)}]
-
          
        
 class DeleteTicketMutation(OpenIMISMutation):
@@ -462,6 +484,8 @@ class CreateTicketAttachmentMutation(OpenIMISMutation):
                 'detail': str(exc)}]
 
 
+
+
 class UpdateTicketAttachmentMutation (OpenIMISMutation):
     _mutation_module = "ticket"
     _mutation_class = "UpdateTicketAttachmentMutation"
@@ -486,7 +510,7 @@ class UpdateTicketAttachmentMutation (OpenIMISMutation):
             else:
                  #raise an error if uuid is not valid or does not exist
                  raise PermissionDenied(_("unauthorized"))
-            #saves update data
+            #saves update dta
             ticketattachment.save()
             return None
         except Exception as exc:

@@ -4,7 +4,7 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
 from django.shortcuts import render
-from grievance.models import TicketAttachment
+from .models import TicketAttachment
 from django.utils.translation import gettext as _
 from .apps import TicketConfig
 # Create your views here.
@@ -34,4 +34,3 @@ def attach(request):
     else:
         response.write(base64.b64decode(attachment.document))
     return response
-
