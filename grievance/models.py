@@ -70,16 +70,16 @@ class Ticket(core_models.VersionedModel, ):
     name = models.CharField(db_column="Name", max_length=100, blank=True, null=True)
     phone = models.CharField(db_column='PhoneNumber', max_length=25, blank=True, null=True)
     email = models.CharField(db_column="Email", max_length=200, blank=True, null=True)
-    date_of_incident = models.DateField(db_column="Date_of_Incident", blank=True, null=True)
-    name_of_complainant = models.CharField(db_column="Name of Complainanat", max_length=100, blank=True, null=True)
+    date_of_incident = models.DateField(db_column="IncidentDate", blank=True, null=True)
+    name_of_complainant = models.CharField(db_column="ComplainantName", max_length=100, blank=True, null=True)
     witness = models.CharField(db_column="Witness", max_length=255, blank=True, null=True)
     # location = models.ForeignKey(location_models.Location, on_delete= models.DO_NOTHING, db_column='LocationId', blank = True, null = True, related_name="tickets" )
     resolution = models.CharField(db_column="Resolution", max_length=255, blank=True, null=True)
     ticket_status = models.CharField(db_column='TicketStatus', max_length=20, blank=True, null=True)
     ticket_priority = models.CharField(db_column='TicketPriority', max_length=20, blank=True, null=True)
-    ticket_dueDate = models.DateField(db_column="Tciket_DueDate", blank=True, null=True)
+    ticket_due_date = models.DateField(db_column="TicketDueDate", blank=True, null=True)
 
-    date_submitted = fields.DateField(db_column="Date_Submission", blank=True, default=py_datetime.now)
+    date_submitted = fields.DateField(db_column="SubmissionDate", blank=True, default=py_datetime.now)
 
     def __str__(self):
         return f"{self.ticket_title}"
