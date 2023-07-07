@@ -57,7 +57,7 @@ class TicketInputType(OpenIMISMutation.Input):
     resolution = graphene.String(required=False)
     ticket_status = graphene.String(required=False)
     ticket_priority = graphene.String(required=False)
-    ticket_dueDate = graphene.Date(required=False)
+    ticket_due_date = graphene.Date(required=False)
     date_submitted = graphene.Date(required=False)
 
 

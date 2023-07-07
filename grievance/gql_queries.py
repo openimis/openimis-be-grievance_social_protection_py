@@ -49,7 +49,7 @@ class TicketGQLType(DjangoObjectType):
             "resolution": ["exact", "istartswith", "icontains", "iexact"],
             "ticket_status": ["exact", "istartswith", "icontains", "iexact"],
             "ticket_priority": ["exact", "istartswith", "icontains", "iexact"],
-            "ticket_dueDate": ["exact", "istartswith", "icontains", "iexact"],
+            "ticket_due_date": ["exact", "istartswith", "icontains", "iexact"],
             "date_submitted": ["exact", "istartswith", "icontains", "iexact"],
             **prefix_filterset("category__", CategoryTicketGQLType._meta.filter_fields),
             **prefix_filterset("insuree__", InsureeGQLType._meta.filter_fields),
