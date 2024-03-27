@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
-MODULE_NAME = "grievance"
+MODULE_NAME = "grievance_social_protection"
 
 DEFAULT_CFG = {
     "default_validations_disabled": False,
@@ -19,7 +19,7 @@ DEFAULT_CFG = {
 
 class TicketConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'grievance'
+    name = MODULE_NAME
     gql_query_tickets_perms = []
     gql_mutation_create_tickets_perms = []
     gql_mutation_update_tickets_perms = []
