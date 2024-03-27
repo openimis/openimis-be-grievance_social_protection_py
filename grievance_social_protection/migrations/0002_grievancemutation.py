@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
             name='GrievanceMutation',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('Grievance', models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, related_name='mutations', to='grievance.Grievance')),
+                ('Grievance', models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, related_name='mutations', to='grievance_social_protection.Grievance')),
                 ('mutation', models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, related_name='Grievance', to='core.MutationLog')),
             ],
             options={

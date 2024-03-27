@@ -264,7 +264,7 @@ class CreateTicketMutation(CreateOrUpdateTicketMutation):
     """
     Create a new ticket. 
     """
-    _mutation_module = "grievance"
+    _mutation_module = "grievance_social_protection"
     _mutation_class = "CreateTicketMutation"
 
     class Input(TicketInputType):
@@ -289,7 +289,7 @@ class UpdateTicketMutation(CreateOrUpdateTicketMutation):
     """
    Update ticket.
    """
-    _mutation_module = "grievance"
+    _mutation_module = "grievance_social_protection"
     _mutation_class = "UpdateTicketMutation"
 
     class Input(TicketInputType):
@@ -346,7 +346,7 @@ class CreateCategoryMutation(CreateOrUpdateCategoryMutation):
     """
     Create a new ticket. 
     """
-    _mutation_module = "grievance"
+    _mutation_module = "grievance_social_protection"
     _mutation_class = "CreateCategoryMutation"
 
     class Input(CategoryInputType):
@@ -370,7 +370,7 @@ class UpdateCategoryMutation(CreateOrUpdateCategoryMutation):
     """
     Create a new ticket. 
     """
-    _mutation_module = "grievance"
+    _mutation_module = "grievance_social_protection"
     _mutation_class = "UpdateCategoryMutation"
 
     class Input(CategoryInputType):
@@ -423,7 +423,7 @@ class DeleteCategoryMutation(OpenIMISMutation):
 
 
 class CreateTicketAttachmentMutation(OpenIMISMutation):
-    _mutation_module = "grievance"
+    _mutation_module = "grievance_social_protection"
     _mutation_class = "CreateTicketAttachmentMutation"
 
     class Input(AttachmentInputType):
@@ -453,7 +453,7 @@ class CreateTicketAttachmentMutation(OpenIMISMutation):
 
 
 class UpdateTicketAttachmentMutation(OpenIMISMutation):
-    _mutation_module = "grievance"
+    _mutation_module = "grievance_social_protection"
     _mutation_class = "UpdateTicketAttachmentMutation"
 
     class Input(BaseAttachmentInputType):

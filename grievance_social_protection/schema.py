@@ -3,6 +3,8 @@ from core.schema import signal_mutation_module_validate
 from graphene_django.filter import DjangoFilterConnectionField
 from django.db.models import Q
 import graphene_django_optimizer as gql_optimizer
+from .apps import MODULE_NAME
+
 from .gql_queries import *
 from .gql_mutations import *
 from django.utils.translation import gettext_lazy as _
@@ -138,4 +140,4 @@ def on_ticket_mutation(**kwargs):
 
 
 def bind_signals():
-    signal_mutation_module_validate["grievance"].connect(on_ticket_mutation)
+    signal_mutation_module_validate[MODULE_NAME].connect(on_ticket_mutation)
