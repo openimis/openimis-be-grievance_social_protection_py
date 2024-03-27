@@ -13,7 +13,7 @@ def reverse_add_initial_data(grievance, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('grievance', '0006_add_admin_rights'),
+        ('grievance_social_protection', '0006_add_admin_rights'),
     ]
 
     operations = [

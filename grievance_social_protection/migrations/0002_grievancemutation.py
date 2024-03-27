@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('core', '0016_add_last_login_on_interactive_user'),
-        ('grievance', '0001_initial'),
+        ('grievance_social_protection', '0001_initial'),
     ]
 
     operations = [

@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('grievance', '0002_grievancemutation'),
+        ('grievance_social_protection', '0002_grievancemutation'),
     ]
 
     operations = [

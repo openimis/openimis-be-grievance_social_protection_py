@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
         ('core', '0016_add_last_login_on_interactive_user'),
         ('insuree', '0013_auto_20211103_1023'),
         ('location', '0008_add_enrollment_officer_gql_query_location_right'),
-        ('grievance', '0003_auto_20221130_1620'),
+        ('grievance_social_protection', '0003_auto_20221130_1620'),
     ]
 
     operations = [
