@@ -8,16 +8,16 @@ with open(os.path.join(os.path.dirname(__file__), 'README.md')) as readme:
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setup(
-    name='openimis-be-grievance',
+    name='openimis-be-grievance_social_protection',
     version='1.0.0',
     packages=find_packages(),
     include_package_data=True,
     license='GNU AGPL v3',
-    description='The openIMIS Backend Grievance reference module.',
+    description='Fork of the openIMIS Backend Grievance reference module.',
     # long_description=README,
-    url='https://2m-corp.com/',
-    author='2M Corp',
-    author_email='info@2m-corp.com',
+    url='https://soldevelo.com/',
+    author='SolDevelo',
+    author_email='jdolkowski@soldevelo.com',
     install_requires=[
         'django',
         'django-db-signals',
