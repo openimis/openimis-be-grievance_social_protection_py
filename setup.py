@@ -15,7 +15,7 @@ setup(
     license='GNU AGPL v3',
     description='Fork of the openIMIS Backend Grievance reference module.',
     # long_description=README,
-    url='https://soldevelo.com/',
+    url='https://openimis.org/',
     author='SolDevelo',
     author_email='jdolkowski@soldevelo.com',
     install_requires=[
