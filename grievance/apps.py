@@ -19,7 +19,7 @@ DEFAULT_CFG = {
 
 class TicketConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'grievance_social_protection'
+    name = MODULE_NAME
     gql_query_tickets_perms = []
     gql_mutation_create_tickets_perms = []
     gql_mutation_update_tickets_perms = []
