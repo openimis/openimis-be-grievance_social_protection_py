@@ -22,7 +22,7 @@ def add_rights(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('grievance', '0005_auto_20230703_1349'),
+        ('grievance_social_protection', '0005_auto_20230703_1349'),
     ]
 
     operations = [

@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
         ('core', '0016_add_last_login_on_interactive_user'),
         ('insuree', '0013_auto_20211103_1023'),
         ('location', '0008_add_enrollment_officer_gql_query_location_right'),
-        ('grievance', '0003_auto_20221130_1620'),
+        ('grievance_social_protection', '0003_auto_20221130_1620'),
     ]
 
     operations = [
@@ -51,7 +51,7 @@ class Migration(migrations.Migration):
             name='CategoryMutation',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('category', models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, related_name='mutations', to='grievance.category')),
+                ('category', models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, related_name='mutations', to='grievance_social_protection.category')),
                 ('mutation', models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, related_name='category', to='core.mutationlog')),
             ],
             options={
@@ -83,7 +83,7 @@ class Migration(migrations.Migration):
                 ('ticket_priority', models.CharField(choices=[('Critical', 'Critical'), ('High', 'high'), ('Normal', 'Normal'), ('Low', 'Low')], db_column='TicketPriority', default='Normal', help_text='how critical is the problem C = Critical and L = Low ', max_length=15)),
                 ('ticket_dueDate', models.DateField(blank=True, db_column='Tciket_DueDate', null=True)),
                 ('date_submitted', core.fields.DateField(blank=True, db_column='Date_Submission', default=datetime.datetime.now)),
-                ('category', models.ForeignKey(blank=True, db_column='CategoryID', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='tickets', to='grievance.category')),
+                ('category', models.ForeignKey(blank=True, db_column='CategoryID', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='tickets', to='grievance_social_protection.category')),
                 ('event_location', models.ForeignKey(blank=True, db_column='EventLocationId', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='event_location', to='location.location')),
                 ('insuree', models.ForeignKey(blank=True, db_column='InsureeID', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='tickets', to='insuree.insuree')),
             ],
@@ -105,7 +105,7 @@ class Migration(migrations.Migration):
                 ('url', models.TextField(blank=True, max_length=1000, null=True)),
                 ('document', models.TextField(blank=True, null=True)),
                 ('date', core.fields.DateField(blank=True, default=datetime.datetime.now)),
-                ('ticket', models.ForeignKey(db_column='TicketId', on_delete=django.db.models.deletion.DO_NOTHING, related_name='attachment', to='grievance.ticket')),
+                ('ticket', models.ForeignKey(db_column='TicketId', on_delete=django.db.models.deletion.DO_NOTHING, related_name='attachment', to='grievance_social_protection.ticket')),
             ],
             options={
                 'db_table': 'tblTicketAttachment',
@@ -117,7 +117,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('mutation', models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, related_name='tickets', to='core.mutationlog')),
-                ('ticket', models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, related_name='mutations', to='grievance.ticket')),
+                ('ticket', models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, related_name='mutations', to='grievance_social_protection.ticket')),
             ],
             options={
                 'db_table': 'ticket_TicketMutation',
@@ -142,6 +142,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='attachmentmutation',
             name='ticket',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, related_name='mutations', to='grievance.ticketattachment'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, related_name='mutations', to='grievance_social_protection.ticketattachment'),
         ),
     ]

@@ -3,17 +3,17 @@
 from django.db import migrations
 
 def add_initial_data(grievance, schema_editor):
-    Category = grievance.get_model('grievance', 'Category')
+    Category = grievance.get_model('grievance_social_protection', 'Category')
     Category.objects.create(category_title='Claim', slug="C")
     # Add more data as needed
 
 def reverse_add_initial_data(grievance, schema_editor):
-    Category = grievance.get_model('grievance', 'Category')
+    Category = grievance.get_model('grievance_social_protection', 'Category')
     Category.objects.filter(category_title='Claim').delete()
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('grievance', '0006_add_admin_rights'),
+        ('grievance_social_protection', '0006_add_admin_rights'),
     ]
 
     operations = [
