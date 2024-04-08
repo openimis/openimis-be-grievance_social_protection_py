@@ -39,6 +39,8 @@ class Query(graphene.ObjectType):
         orderBy=graphene.List(of_type=graphene.String),
     )
 
+    grievance_config = graphene.Field(GrievanceTypeConfigurationGQLType)
+
     def resolve_ticket_details(self, info, **kwargs):
         # if not info.context.user.has_perms(ServiceProviderConfig.gql_query_service_provider_perms):
         #     raise PermissionDenied(_("unauthorized"))
@@ -97,6 +99,13 @@ class Query(graphene.ObjectType):
     def resolve_claim_attachments(self, info, **kwargs):
         if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
             raise PermissionDenied(_("unauthorized"))
+
+
+    def resolve_grievance_config(self, info, **kwargs):
+        user = info.context.user
+        if not user.is_imis_admin:
+            raise PermissionDenied(_("unauthorized"))
+        return GrievanceTypeConfigurationGQLType()
 
 
 class Mutation(graphene.ObjectType):

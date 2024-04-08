@@ -1,5 +1,8 @@
 import graphene
+from graphene import ObjectType
 from graphene_django import DjangoObjectType
+
+from .apps import TicketConfig
 from .models import Ticket, Category, TicketAttachment
 from insuree.schema import InsureeGQLType
 from core import prefix_filterset, ExtendedConnection, filter_validity, ExtendedRelayConnection
@@ -16,7 +19,6 @@ class CategoryTicketGQLType(DjangoObjectType):
         filter_fields = {
             "id": ["exact"],
             "uuid": ['exact'],
-            "uuid": ["exact"],
             "category_title": ["exact", "istartswith", "icontains", "iexact"],
             "slug": ["exact", "istartswith", "icontains", "iexact"]
         }
@@ -81,3 +83,19 @@ class TicketAttachmentGQLType(DjangoObjectType):
     def get_queryset(cls, queryset, info):
         queryset = queryset.filter(*filter_validity())
         return queryset
+
+
+class GrievanceTypeConfigurationGQLType(ObjectType):
+    grievance_types = graphene.List(graphene.String)
+    grievance_flags = graphene.List(graphene.String)
+    grievance_channels = graphene.List(graphene.String)
+
+
+    def resolve_grievance_types(self, info):
+        return TicketConfig.grievance_types
+
+    def resolve_grievance_flags(self, info):
+        return TicketConfig.grievance_flags
+
+    def resolve_grievance_channels(self, info):
+        return TicketConfig.grievance_channels
