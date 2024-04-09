@@ -23,7 +23,8 @@ DEFAULT_CFG = {
     "grievance_types": [DEFAULT_STRING],
     "grievance_flags": [DEFAULT_STRING],
     "grievance_channels": [DEFAULT_STRING],
-    "default_responses": {'eloo': DEFAULT_STRING}
+    "default_responses": {DEFAULT_STRING: DEFAULT_STRING},
+    "grievance_anonymized_fields": {DEFAULT_STRING: []}
 }
 
 
@@ -44,34 +45,36 @@ class TicketConfig(AppConfig):
     grievance_flags = []
     grievance_channels = []
     default_responses = {}
+    grievance_anonymized_fields = {}
 
     def ready(self):
         from core.models import ModuleConfiguration
         cfg = ModuleConfiguration.get_or_default(MODULE_NAME, DEFAULT_CFG)
-        self.__validate_grievance_responses(cfg)
+        self.__validate_grievance_dict_fields(cfg, 'default_responses')
+        self.__validate_grievance_dict_fields(cfg, 'grievance_anonymized_fields')
         self.__load_config(cfg)
 
     @classmethod
-    def __validate_grievance_responses(cls, cfg):
+    def __validate_grievance_dict_fields(cls, cfg, field_name):
         def get_grievance_type_options_msg(types):
             types_string = ", ".join(types)
-            return logger.info(f'Available grievance types: %s', types_string)
+            return logger.info(f'Available grievance types: {types_string}')
 
-        default_responses = cfg.get('default_responses', {})
-        if not default_responses:
+        dict_field = cfg.get(field_name, {})
+        if not dict_field:
             return
 
         grievance_types = cfg.get('grievance_types', [])
         if not grievance_types:
-            logger.warning('Please specify grievance_types if you want to setup default responses.')
+            logger.warning('Please specify grievance_types if you want to setup %s.', field_name)
 
-        if not isinstance(default_responses, dict):
+        if not isinstance(dict_field, dict):
             get_grievance_type_options_msg(grievance_types)
             return
 
-        for grievance_type_key in default_responses.keys():
-            if grievance_type_key not in grievance_types:
-                logger.warning(f'%s not in grievance_types', grievance_type_key)
+        for field_key in dict_field.keys():
+            if field_key not in grievance_types:
+                logger.warning('%s in %s not in grievance_types', field_key, field_name)
                 get_grievance_type_options_msg(grievance_types)
 
     @classmethod
