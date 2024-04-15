@@ -1,61 +1,59 @@
 import graphene
 from graphene import ObjectType
 from graphene_django import DjangoObjectType
+from django.core.exceptions import PermissionDenied
+from django.utils.translation import gettext as _
 
+from core.gql_queries import UserGQLType
 from .apps import TicketConfig
-from .models import Ticket, Category, TicketAttachment
-from insuree.schema import InsureeGQLType
-from core import prefix_filterset, ExtendedConnection, filter_validity, ExtendedRelayConnection
+from .models import Ticket
+
+from core import prefix_filterset, ExtendedConnection
+from .util import model_obj_to_json
 
 
-class CategoryTicketGQLType(DjangoObjectType):
-    """
-    create a category with a label in the slug field
-    """
-
-    class Meta:
-        model = Category
-        interfaces = (graphene.relay.Node,)
-        filter_fields = {
-            "id": ["exact"],
-            "uuid": ['exact'],
-            "category_title": ["exact", "istartswith", "icontains", "iexact"],
-            "slug": ["exact", "istartswith", "icontains", "iexact"]
-        }
-        connection_class = ExtendedConnection
+def check_perms(info):
+    if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
+        raise PermissionDenied(_("unauthorized"))
 
 
 class TicketGQLType(DjangoObjectType):
+    # TODO on resolve check filters and remove anonymized so user can't fetch ticket using last_name if not visible
     client_mutation_id = graphene.String()
+    reporter = graphene.JSONString()
+    reporter_type = graphene.Int()
+    reporter_type_name = graphene.String()
 
-    def resolve_insuree(self, info):
-        if "insuree_loader" in info.context.dataloaders and self.insuree_id:
-            return info.context.dataloaders["insuree_loader"].load(self.insuree_id)
-        return self.insuree
+    @staticmethod
+    def resolve_reporter_type(root, info):
+        check_perms(info)
+        return root.reporter_type.id
+
+    @staticmethod
+    def resolve_reporter_type_name(root, info):
+        check_perms(info)
+        return root.reporter_type.name
+
+    @staticmethod
+    def resolve_reporter(root, info):
+        check_perms(info)
+        return model_obj_to_json(root.reporter)
 
     class Meta:
         model = Ticket
         interfaces = (graphene.relay.Node,)
         filter_fields = {
-            "id": ["exact"],
-            "uuid": ["exact"],
-            "ticket_title": ["exact", "istartswith", "icontains", "iexact"],
-            "ticket_code": ["exact", "istartswith", "icontains", "iexact"],
-            "ticket_description": ["exact", "istartswith", "icontains", "iexact"],
-            "name": ["exact", "istartswith", "icontains", "iexact"],
-            "phone": ["exact", "istartswith", "icontains", "iexact"],
-            "email": ["exact", "istartswith", "icontains", "iexact"],
+            "key": ["exact", "istartswith", "icontains", "iexact"],
+            "title": ["exact", "istartswith", "icontains", "iexact"],
+            "description": ["exact", "istartswith", "icontains", "iexact"],
+            "status": ["exact", "istartswith", "icontains", "iexact"],
+            "priority": ["exact", "istartswith", "icontains", "iexact"],
+            'reporter_id': ["exact"],
+            "due_date": ["exact", "istartswith", "icontains", "iexact"],
             "date_of_incident": ["exact", "istartswith", "icontains", "iexact"],
-            "name_of_complainant": ["exact", "istartswith", "icontains", "iexact"],
-            "witness": ["exact", "istartswith", "icontains", "iexact"],
-            "resolution": ["exact", "istartswith", "icontains", "iexact"],
-            "ticket_status": ["exact", "istartswith", "icontains", "iexact"],
-            "ticket_priority": ["exact", "istartswith", "icontains", "iexact"],
-            "ticket_due_date": ["exact", "istartswith", "icontains", "iexact"],
-            "date_submitted": ["exact", "istartswith", "icontains", "iexact"],
-            **prefix_filterset("category__", CategoryTicketGQLType._meta.filter_fields),
-            **prefix_filterset("insuree__", InsureeGQLType._meta.filter_fields),
-            # **prefix_filterset("location__", LocationGQLType._meta.filter_fields)
+            "date_created": ["exact", "istartswith", "icontains", "iexact"],
+            # TODO reporter generic key
+            **prefix_filterset("attending_staff__", UserGQLType._meta.filter_fields),
         }
 
         connection_class = ExtendedConnection
@@ -66,30 +64,29 @@ class TicketGQLType(DjangoObjectType):
         return ticket_mutation.mutation.client_mutation_id if ticket_mutation else None
 
 
-class TicketAttachmentGQLType(DjangoObjectType):
-    class Meta:
-        model = TicketAttachment
-        interfaces = (graphene.relay.Node,)
-        filter_fields = {
-            "id": ["exact"],
-            "filename": ["exact", "icontains"],
-            "mime_type": ["exact", "icontains"],
-            "url": ["exact", "icontains"],
-            **prefix_filterset("ticket__", TicketGQLType._meta.filter_fields),
-        }
-        connection_class = ExtendedConnection
-
-    @classmethod
-    def get_queryset(cls, queryset, info):
-        queryset = queryset.filter(*filter_validity())
-        return queryset
+# class TicketAttachmentGQLType(DjangoObjectType):
+#     class Meta:
+#         model = TicketAttachment
+#         interfaces = (graphene.relay.Node,)
+#         filter_fields = {
+#             "id": ["exact"],
+#             "filename": ["exact", "icontains"],
+#             "mime_type": ["exact", "icontains"],
+#             "url": ["exact", "icontains"],
+#             **prefix_filterset("ticket__", TicketGQLType._meta.filter_fields),
+#         }
+#         connection_class = ExtendedConnection
+#
+#     @classmethod
+#     def get_queryset(cls, queryset, info):
+#         queryset = queryset.filter(*filter_validity())
+#         return queryset
 
 
 class GrievanceTypeConfigurationGQLType(ObjectType):
     grievance_types = graphene.List(graphene.String)
     grievance_flags = graphene.List(graphene.String)
     grievance_channels = graphene.List(graphene.String)
-
 
     def resolve_grievance_types(self, info):
         return TicketConfig.grievance_types
