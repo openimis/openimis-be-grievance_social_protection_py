@@ -83,10 +83,16 @@ class TicketGQLType(DjangoObjectType):
 #         return queryset
 
 
+class AttendingStaffRoleGQLType(ObjectType):
+    category = graphene.String()
+    role_ids = graphene.List(graphene.String)
+
+
 class GrievanceTypeConfigurationGQLType(ObjectType):
     grievance_types = graphene.List(graphene.String)
     grievance_flags = graphene.List(graphene.String)
     grievance_channels = graphene.List(graphene.String)
+    grievance_category_staff_roles = graphene.List(AttendingStaffRoleGQLType)
 
     def resolve_grievance_types(self, info):
         return TicketConfig.grievance_types
@@ -96,3 +102,14 @@ class GrievanceTypeConfigurationGQLType(ObjectType):
 
     def resolve_grievance_channels(self, info):
         return TicketConfig.grievance_channels
+
+    def resolve_grievance_category_staff_roles(self, info):
+        category_staff_role_list = []
+        for category_key, role_ids in TicketConfig.default_attending_staff_role_ids.items():
+            category_staff_role = AttendingStaffRoleGQLType(
+                category=category_key,
+                role_ids=role_ids
+            )
+            category_staff_role_list.append(category_staff_role)
+
+        return category_staff_role_list
