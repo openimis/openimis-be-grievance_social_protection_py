@@ -10,7 +10,6 @@ DEFAULT_STRING = 'Default'
 # CRON timedelta: {days},{hours}
 DEFAULT_TIME_RESOLUTION = '5,0'
 
-
 DEFAULT_CFG = {
     "default_validations_disabled": False,
     "gql_query_tickets_perms": ["123000"],
@@ -31,6 +30,9 @@ DEFAULT_CFG = {
     # CRON timedelta: {days},{hours}
     "resolution_times": DEFAULT_TIME_RESOLUTION,
     "default_resolution": {DEFAULT_STRING: DEFAULT_TIME_RESOLUTION},
+
+    "attending_staff_role_ids": [],
+    "default_attending_staff_role_ids": {DEFAULT_STRING: [1, 2]},
 }
 
 
@@ -54,6 +56,8 @@ class TicketConfig(AppConfig):
     grievance_anonymized_fields = {}
     resolution_times = {}
     default_resolution = {}
+    attending_staff_role_ids = []
+    default_attending_staff_role_ids = {}
 
     def ready(self):
         from core.models import ModuleConfiguration
