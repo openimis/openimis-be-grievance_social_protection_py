@@ -7,6 +7,9 @@ logger = logging.getLogger(__name__)
 MODULE_NAME = "grievance_social_protection"
 
 DEFAULT_STRING = 'Default'
+# CRON timedelta: {days},{hours}
+DEFAULT_TIME_RESOLUTION = '5,0'
+
 
 DEFAULT_CFG = {
     "default_validations_disabled": False,
@@ -24,7 +27,10 @@ DEFAULT_CFG = {
     "grievance_flags": [DEFAULT_STRING],
     "grievance_channels": [DEFAULT_STRING],
     "default_responses": {DEFAULT_STRING: DEFAULT_STRING},
-    "grievance_anonymized_fields": {DEFAULT_STRING: []}
+    "grievance_anonymized_fields": {DEFAULT_STRING: []},
+    # CRON timedelta: {days},{hours}
+    "resolution_times": DEFAULT_TIME_RESOLUTION,
+    "default_resolution": {DEFAULT_STRING: DEFAULT_TIME_RESOLUTION},
 }
 
 
@@ -46,12 +52,16 @@ class TicketConfig(AppConfig):
     grievance_channels = []
     default_responses = {}
     grievance_anonymized_fields = {}
+    resolution_times = {}
+    default_resolution = {}
 
     def ready(self):
         from core.models import ModuleConfiguration
         cfg = ModuleConfiguration.get_or_default(MODULE_NAME, DEFAULT_CFG)
         self.__validate_grievance_dict_fields(cfg, 'default_responses')
         self.__validate_grievance_dict_fields(cfg, 'grievance_anonymized_fields')
+        self.__validate_grievance_dict_fields(cfg, 'default_resolution')
+        self.__validate_grievance_default_resolution_time(cfg)
         self.__load_config(cfg)
 
     @classmethod
@@ -76,6 +86,37 @@ class TicketConfig(AppConfig):
             if field_key not in grievance_types:
                 logger.warning('%s in %s not in grievance_types', field_key, field_name)
                 get_grievance_type_options_msg(grievance_types)
+
+    @classmethod
+    def __validate_grievance_default_resolution_time(cls, cfg):
+        dict_field = cfg.get("default_resolution", {})
+        if not dict_field:
+            return
+        for key in dict_field:
+            value = dict_field[key]
+            if value in ['', None]:
+                resolution_times = cfg.get("resolution_times", DEFAULT_TIME_RESOLUTION)
+                logger.warning(
+                    '"%s" has no value for resolution. The default one is taken as "%s".',
+                    key,
+                    resolution_times
+                )
+                dict_field[key] = resolution_times
+            else:
+                if ',' not in value:
+                    logger.warning("Invalid input. Configuration should contain two integers "
+                                   "representing days and hours, separated by a comma.")
+                else:
+                    parts = value.split(',')
+                    # Parse days and hours
+                    days = int(parts[0])
+                    hours = int(parts[1])
+                    # Validate days and hours
+                    if 0 <= days < 99 and 0 <= hours < 24:
+                        logger.info(f"Days: {days}, Hours: {hours}")
+                    else:
+                        logger.warning("Invalid input. Days must be between 0 and 99, "
+                                       "and hours must be between 0 and 24.")
 
     @classmethod
     def __load_config(cls, cfg):
