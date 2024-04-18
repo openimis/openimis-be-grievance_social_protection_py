@@ -13,7 +13,6 @@ class TicketValidation(BaseModelValidation):
     def validate_create(cls, user, **data):
         errors = [
             *validate_ticket_unique_code(data),
-            *validate_reporter(data)
         ]
         if errors:
             raise ValidationError(errors)
@@ -22,7 +21,6 @@ class TicketValidation(BaseModelValidation):
     def validate_update(cls, user, **data):
         errors = [
             *validate_ticket_unique_code(data),
-            *validate_reporter(data)
         ]
         if errors:
             raise ValidationError(errors)
