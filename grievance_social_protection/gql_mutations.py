@@ -34,11 +34,11 @@ class CreateTicketInputType(OpenIMISMutation.Input):
     category = graphene.String(required=True)
     flags = graphene.String(required=False)
     channel = graphene.String(required=False)
+    resolution = graphene.String(required=False)
 
 
 class UpdateTicketInputType(CreateTicketInputType):
     id = graphene.UUID(required=True)
-    resolution = graphene.String(required=False)
 
 
 class CreateTicketMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
