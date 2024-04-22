@@ -21,16 +21,20 @@ class CreateTicketInputType(OpenIMISMutation.Input):
         RESOLVED = Ticket.TicketStatus.RESOLVED
         CLOSED = Ticket.TicketStatus.CLOSED
 
-    key = graphene.String(required=True)
+    key = graphene.String(required=False)
     title = graphene.String(required=False)
     description = graphene.String(required=False)
     reporter_type = graphene.String(required=True, max_lenght=255)
     reporter_id = graphene.String(required=True)
-    attending_staff_uuid = graphene.UUID(required=False)
+    attending_staff_id = graphene.UUID(required=False)
     date_of_incident = graphene.Date(required=False)
     status = graphene.Field(TicketStatusEnum, required=False)
     priority = graphene.String(required=False)
     due_date = graphene.Date(required=False)
+    category = graphene.String(required=True)
+    flags = graphene.String(required=False)
+    channel = graphene.String(required=False)
+    resolution = graphene.String(required=False)
 
 
 class UpdateTicketInputType(CreateTicketInputType):
@@ -57,6 +61,8 @@ class CreateTicketMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
         service = TicketService(user)
         response = service.create(data)
         if client_mutation_id:
+            ticket_id = response['data']['id']
+            ticket = Ticket.objects.get(id=ticket_id)
             TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, Ticket=ticket)
 
         if not response['success']:
@@ -87,6 +93,8 @@ class UpdateTicketMutation(BaseHistoryModelUpdateMutationMixin, BaseMutation):
         service = TicketService(user)
         response = service.update(data)
         if client_mutation_id:
+            ticket_id = response['data']['id']
+            ticket = Ticket.objects.get(id=ticket_id)
             TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, Ticket=ticket)
 
         if not response['success']:

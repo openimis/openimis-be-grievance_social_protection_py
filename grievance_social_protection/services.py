@@ -15,14 +15,12 @@ class TicketService(BaseService):
 
     @register_service_signal('ticket_service.create')
     def create(self, obj_data):
-        self.validation_class.validate_create(self.user, **obj_data)
         self._get_content_type(obj_data)
         self._generate_code(obj_data)
         return super().create(obj_data)
 
     @register_service_signal('ticket_service.update')
     def update(self, obj_data):
-        self.validation_class.validate_update(self.user, **obj_data)
         self._get_content_type(obj_data)
         return super().update(obj_data)
 

@@ -30,7 +30,7 @@ class Ticket(HistoryBusinessModel):
     code = models.CharField(max_length=16, unique=True, blank=True, null=True)
 
     reporter_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=False, blank=False)
-    reporter_id = models.PositiveIntegerField(null=False, blank=False)
+    reporter_id = models.CharField(max_length=255, null=False, blank=False)
     reporter = GenericForeignKey('reporter_type', 'reporter_id')
 
     attending_staff = models.ForeignKey(User, models.DO_NOTHING, blank=True, null=True)
@@ -40,6 +40,11 @@ class Ticket(HistoryBusinessModel):
     )
     priority = models.CharField(max_length=20, blank=True, null=True)
     due_date = models.DateField(blank=True, null=True)
+
+    category = models.CharField(max_length=255, blank=True, null=True)
+    flags = models.CharField(max_length=255, blank=True, null=True)
+    channel = models.CharField(max_length=255, blank=True, null=True)
+    resolution = models.CharField(max_length=255, blank=True, null=True)
 
     def clean(self):
         super().clean()

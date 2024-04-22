@@ -22,14 +22,14 @@ DEFAULT_CFG = {
     "gql_mutation_delete_categorys_perms": ["123007"],
     "tickets_attachments_root_path": None,
 
-    "grievance_types": [DEFAULT_STRING],
-    "grievance_flags": [DEFAULT_STRING],
-    "grievance_channels": [DEFAULT_STRING],
+    "grievance_types": [DEFAULT_STRING, 'Category A', 'Category B'],
+    "grievance_flags": [DEFAULT_STRING, 'Flag A', 'Flag B'],
+    "grievance_channels": [DEFAULT_STRING, 'Channel A', 'Channel B'],
     "default_responses": {DEFAULT_STRING: DEFAULT_STRING},
     "grievance_anonymized_fields": {DEFAULT_STRING: []},
     # CRON timedelta: {days},{hours}
     "resolution_times": DEFAULT_TIME_RESOLUTION,
-    "default_resolution": {DEFAULT_STRING: DEFAULT_TIME_RESOLUTION},
+    "default_resolution": {DEFAULT_STRING: DEFAULT_TIME_RESOLUTION, 'Category A': '4,0', 'Category B': '6,12'},
 
     "attending_staff_role_ids": [],
     "default_attending_staff_role_ids": {DEFAULT_STRING: [1, 2]},

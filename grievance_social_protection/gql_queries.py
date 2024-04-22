@@ -43,11 +43,16 @@ class TicketGQLType(DjangoObjectType):
         model = Ticket
         interfaces = (graphene.relay.Node,)
         filter_fields = {
+            "id": ["exact", "isnull"],
             "key": ["exact", "istartswith", "icontains", "iexact"],
             "title": ["exact", "istartswith", "icontains", "iexact"],
             "description": ["exact", "istartswith", "icontains", "iexact"],
             "status": ["exact", "istartswith", "icontains", "iexact"],
             "priority": ["exact", "istartswith", "icontains", "iexact"],
+            "category": ["exact", "istartswith", "icontains", "iexact"],
+            "flags": ["exact", "istartswith", "icontains", "iexact"],
+            "channel": ["exact", "istartswith", "icontains", "iexact"],
+            "resolution": ["exact", "istartswith", "icontains", "iexact"],
             'reporter_id': ["exact"],
             "due_date": ["exact", "istartswith", "icontains", "iexact"],
             "date_of_incident": ["exact", "istartswith", "icontains", "iexact"],
@@ -88,11 +93,17 @@ class AttendingStaffRoleGQLType(ObjectType):
     role_ids = graphene.List(graphene.String)
 
 
+class ResolutionTimesByCategoryGQLType(ObjectType):
+    category = graphene.String()
+    resolution_time = graphene.String()
+
+
 class GrievanceTypeConfigurationGQLType(ObjectType):
     grievance_types = graphene.List(graphene.String)
     grievance_flags = graphene.List(graphene.String)
     grievance_channels = graphene.List(graphene.String)
     grievance_category_staff_roles = graphene.List(AttendingStaffRoleGQLType)
+    grievance_default_resolutions_by_category = graphene.List(ResolutionTimesByCategoryGQLType)
 
     def resolve_grievance_types(self, info):
         return TicketConfig.grievance_types
@@ -113,3 +124,14 @@ class GrievanceTypeConfigurationGQLType(ObjectType):
             category_staff_role_list.append(category_staff_role)
 
         return category_staff_role_list
+
+    def resolve_grievance_default_resolutions_by_category(self, info):
+        category_resolution_time_list = []
+        for category_key, resolution_time in TicketConfig.default_resolution.items():
+            category_resolution_time = ResolutionTimesByCategoryGQLType(
+                category=category_key,
+                resolution_time=resolution_time
+            )
+            category_resolution_time_list.append(category_resolution_time)
+
+        return category_resolution_time_list
