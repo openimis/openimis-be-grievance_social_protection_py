@@ -36,6 +36,19 @@ class Query(graphene.ObjectType):
 
     grievance_config = graphene.Field(GrievanceTypeConfigurationGQLType)
 
+    comments = OrderedDjangoFilterConnectionField(
+        CommentGQLType,
+        orderBy=graphene.List(of_type=graphene.String),
+    )
+
+    def resolve_comments(self, info, **kwargs):
+        user = info.context.user
+
+        if not (user_associated_with_ticket(user) or user.has_perms(TicketConfig.gql_query_comments_perms)):
+            raise PermissionDenied(_("Unauthorized"))
+
+        return gql_optimizer.query(Comment.objects.all(), info)
+
     def resolve_ticket_details(self, info, **kwargs):
         if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
             raise PermissionDenied(_("unauthorized"))
@@ -103,6 +116,8 @@ class Mutation(graphene.ObjectType):
     create_Ticket = CreateTicketMutation.Field()
     update_Ticket = UpdateTicketMutation.Field()
     delete_Ticket = DeleteTicketMutation.Field()
+
+    create_comment = CreateCommentMutation.Field()
 
     # create_ticket_attachment = CreateTicketAttachmentMutation.Field()
     # update_ticket_attachment = UpdateTicketAttachmentMutation.Field()

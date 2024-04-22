@@ -2,8 +2,10 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 from django.contrib.contenttypes.models import ContentType
 
+from core.models import User
 from core.validation import BaseModelValidation
-from grievance_social_protection.models import Ticket
+from grievance_social_protection.apps import TicketConfig
+from grievance_social_protection.models import Ticket, Comment
 
 
 class TicketValidation(BaseModelValidation):
@@ -24,6 +26,64 @@ class TicketValidation(BaseModelValidation):
         ]
         if errors:
             raise ValidationError(errors)
+
+
+class CommentValidation:
+    OBJECT_TYPE = Comment
+
+    @classmethod
+    def validate_create(cls, user, **data):
+        errors = [
+            *validate_ticket_exists(data),
+            *validate_commenter_exists(data),
+            *validate_commenter_associated_with_ticket(data)
+        ]
+        if errors:
+            raise ValidationError(errors)
+
+
+def validate_ticket_exists(data):
+    ticket_id = data.get('ticket_id')
+    if not Ticket.objects.filter(id=ticket_id).exists():
+        return [{"message": _("validations.CommentValidation.validate_ticket_exists") % {"ticket_id": ticket_id}}]
+    return []
+
+
+def validate_commenter_exists(data):
+    commenter_type = data.get('commenter_type')
+    commenter_id = data.get('commenter_id')
+    model_class = commenter_type.model_class()
+
+    if not model_class.objects.filter(id=commenter_id).exists():
+        return [{"message": _("validations.CommentValidation.validate_commenter_exists")}]
+
+    return []
+
+
+def validate_commenter_associated_with_ticket(data):
+    commenter_type = data.get('commenter_type')
+    commenter_id = data.get('commenter_id')
+
+    model_class = commenter_type.model_class()
+    commenter = model_class.objects.get(id=commenter_id)
+
+    if isinstance(commenter, User):
+        attending_staff_tickets = Ticket.objects.filter(attending_staff=commenter)
+        if attending_staff_tickets.exists():
+            return []
+
+    reporter_tickets = Ticket.objects.filter(reporter_type=commenter_type, reporter_id=commenter_id)
+    if reporter_tickets.exists():
+        return []
+
+    return [{"message": _("validations.CommentValidation.commenter_not_associated_with_ticket")}]
+
+
+def user_associated_with_ticket(user):
+    if isinstance(user, User):
+        if Ticket.objects.filter(attending_staff=user).exists():
+            return True
+    return False
 
 
 def validate_ticket_unique_code(data):

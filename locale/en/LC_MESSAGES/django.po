@@ -34,3 +34,12 @@ msgstr "Ticket %(code) already exists."
 #: grievance_social_protection/validations.py:48
 msgid "validations.TicketValidation.validate_if_reporter_exists"
 msgstr "Reporter does not exist."
+
+msgid "validations.CommentValidation.validate_ticket_exists"
+msgstr "Ticket %(ticket_id) does not exist."
+
+msgid "validations.CommentValidation.validate_commenter_exists"
+msgstr "Commenter does not exist."
+
+msgid "validations.CommentValidation.commenter_not_associated_with_ticket"
+msgstr "Commenter not associated with ticket."

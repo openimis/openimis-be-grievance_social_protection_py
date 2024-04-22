@@ -3,14 +3,14 @@ import graphene
 from core.gql.gql_mutations.base_mutation import BaseHistoryModelCreateMutationMixin, BaseMutation, \
     BaseHistoryModelUpdateMutationMixin, BaseHistoryModelDeleteMutationMixin
 from core.schema import OpenIMISMutation
-from .models import Ticket, TicketMutation
+from .models import Ticket, TicketMutation, Comment
 
-from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError, PermissionDenied
 from .apps import TicketConfig
 from django.utils.translation import gettext_lazy as _
 
-from .services import TicketService
+from .services import TicketService, CommentService
+from .validations import user_associated_with_ticket
 
 
 class CreateTicketInputType(OpenIMISMutation.Input):
@@ -25,7 +25,7 @@ class CreateTicketInputType(OpenIMISMutation.Input):
     title = graphene.String(required=False)
     description = graphene.String(required=False)
     reporter_type = graphene.String(required=True, max_lenght=255)
-    reporter_id = graphene.String(required=True)
+    reporter_id = graphene.String(required=True, max_lenght=255)
     attending_staff_id = graphene.UUID(required=False)
     date_of_incident = graphene.Date(required=False)
     status = graphene.Field(TicketStatusEnum, required=False)
@@ -39,6 +39,13 @@ class CreateTicketInputType(OpenIMISMutation.Input):
 
 class UpdateTicketInputType(CreateTicketInputType):
     id = graphene.UUID(required=True)
+
+
+class CreateCommentInputType(OpenIMISMutation.Input):
+    ticket_id = graphene.UUID(required=True)
+    commenter_type = graphene.String(required=True, max_lenght=255)
+    commenter_id = graphene.String(required=True, max_lenght=255)
+    comment = graphene.String(required=True)
 
 
 class CreateTicketMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
@@ -113,12 +120,45 @@ class DeleteTicketMutation(BaseHistoryModelDeleteMutationMixin, BaseMutation):
     @classmethod
     def _validate_mutation(cls, user, **data):
         super()._validate_mutation(user, **data)
-        if type(user) is AnonymousUser or not user.has_perms(
+        if not user.has_perms(
                 TicketConfig.gql_mutation_delete_tickets_perms):
             raise ValidationError("mutation.authentication_required")
 
     class Input(OpenIMISMutation.Input):
         ids = graphene.List(graphene.UUID)
+
+
+class CreateCommentMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
+    _mutation_class = "CreateCommentMutation"
+    _mutation_module = "grievance_social_protection"
+    _model = Comment
+
+    @classmethod
+    def _validate_mutation(cls, user, **data):
+        super()._validate_mutation(user, **data)
+        if user.has_perms(TicketConfig.gql_mutation_delete_tickets_perms):
+            return
+        if user_associated_with_ticket(user):
+            return
+        raise ValidationError("mutation.authentication_required")
+
+    @classmethod
+    def _mutate(cls, user, **data):
+        if "client_mutation_id" in data:
+            data.pop('client_mutation_id')
+        if "client_mutation_label" in data:
+            data.pop('client_mutation_label')
+
+        data['commenter_type'] = data.get('commenter_type', '').lower()
+        service = CommentService(user)
+        response = service.create(data)
+
+        if not response['success']:
+            return response
+        return None
+
+    class Input(CreateCommentInputType):
+        pass
 
 # class CreateTicketAttachmentMutation(OpenIMISMutation):
 #     _mutation_module = "grievance_social_protection"
