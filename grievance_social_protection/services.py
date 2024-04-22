@@ -17,8 +17,7 @@ class TicketService(BaseService):
     def create(self, obj_data):
         self._get_content_type(obj_data)
         self._generate_code(obj_data)
-        d = super().create(obj_data)
-        return d
+        return super().create(obj_data)
 
     @register_service_signal('ticket_service.update')
     def update(self, obj_data):

@@ -26,7 +26,7 @@ class CreateTicketInputType(OpenIMISMutation.Input):
     description = graphene.String(required=False)
     reporter_type = graphene.String(required=True, max_lenght=255)
     reporter_id = graphene.String(required=True)
-    attending_staff_uuid = graphene.UUID(required=False)
+    attending_staff_id = graphene.UUID(required=False)
     date_of_incident = graphene.Date(required=False)
     status = graphene.Field(TicketStatusEnum, required=False)
     priority = graphene.String(required=False)
