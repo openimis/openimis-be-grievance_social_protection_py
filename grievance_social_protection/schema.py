@@ -1,3 +1,5 @@
+from django.contrib.auth.models import AnonymousUser
+
 from core import filter_validity
 from core.schema import OrderedDjangoFilterConnectionField, OpenIMISMutation
 from core.schema import signal_mutation_module_validate
@@ -107,6 +109,8 @@ class Query(graphene.ObjectType):
 
     def resolve_grievance_config(self, info, **kwargs):
         user = info.context.user
+        if type(user) is AnonymousUser:
+            raise PermissionDenied(_("unauthorized"))
         if not user.is_imis_admin:
             raise PermissionDenied(_("unauthorized"))
         return GrievanceTypeConfigurationGQLType()
