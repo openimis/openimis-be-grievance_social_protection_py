@@ -6,15 +6,22 @@ from django.utils.translation import gettext as _
 
 from core.gql_queries import UserGQLType
 from .apps import TicketConfig
-from .models import Ticket
+from .models import Ticket, Comment
 
 from core import prefix_filterset, ExtendedConnection
 from .util import model_obj_to_json
+from .validations import user_associated_with_ticket
 
 
-def check_perms(info):
+def check_ticket_perms(info):
     if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
         raise PermissionDenied(_("unauthorized"))
+
+
+def check_comment_perms(info):
+    user = info.context.user
+    if not (user_associated_with_ticket(user) or user.has_perms(TicketConfig.gql_query_comments_perms)):
+        raise PermissionDenied(_("Unauthorized"))
 
 
 class TicketGQLType(DjangoObjectType):
@@ -26,17 +33,17 @@ class TicketGQLType(DjangoObjectType):
 
     @staticmethod
     def resolve_reporter_type(root, info):
-        check_perms(info)
+        check_ticket_perms(info)
         return root.reporter_type.id
 
     @staticmethod
     def resolve_reporter_type_name(root, info):
-        check_perms(info)
+        check_ticket_perms(info)
         return root.reporter_type.name
 
     @staticmethod
     def resolve_reporter(root, info):
-        check_perms(info)
+        check_ticket_perms(info)
         return model_obj_to_json(root.reporter)
 
     class Meta:
@@ -57,7 +64,6 @@ class TicketGQLType(DjangoObjectType):
             "due_date": ["exact", "istartswith", "icontains", "iexact"],
             "date_of_incident": ["exact", "istartswith", "icontains", "iexact"],
             "date_created": ["exact", "istartswith", "icontains", "iexact"],
-            # TODO reporter generic key
             **prefix_filterset("attending_staff__", UserGQLType._meta.filter_fields),
         }
 
@@ -67,6 +73,39 @@ class TicketGQLType(DjangoObjectType):
         ticket_mutation = self.mutations.select_related(
             'mutation').filter(mutation__status=0).first()
         return ticket_mutation.mutation.client_mutation_id if ticket_mutation else None
+
+
+class CommentGQLType(DjangoObjectType):
+    commenter = graphene.JSONString()
+    commenter_type = graphene.Int()
+    commenter_type_name = graphene.String()
+
+    @staticmethod
+    def resolve_commenter_type(root, info):
+        check_comment_perms(info)
+        return root.commenter_type.id
+
+    @staticmethod
+    def resolve_commenter_type_name(root, info):
+        check_comment_perms(info)
+        return root.commenter_type.name
+
+    @staticmethod
+    def resolve_commenter(root, info):
+        check_comment_perms(info)
+        return model_obj_to_json(root.commenter)
+
+    class Meta:
+        model = Comment
+        interfaces = (graphene.relay.Node,)
+        filter_fields = {
+            "id": ["exact", "isnull"],
+            "comment": ["exact", "istartswith", "icontains", "iexact"],
+            "date_created": ["exact", "istartswith", "icontains", "iexact"],
+            **prefix_filterset("ticket__", TicketGQLType._meta.filter_fields),
+        }
+
+        connection_class = ExtendedConnection
 
 
 # class TicketAttachmentGQLType(DjangoObjectType):

@@ -12,14 +12,12 @@ DEFAULT_TIME_RESOLUTION = '5,0'
 
 DEFAULT_CFG = {
     "default_validations_disabled": False,
-    "gql_query_tickets_perms": ["123000"],
-    "gql_mutation_create_tickets_perms": ["123001"],
-    "gql_mutation_update_tickets_perms": ["123002"],
-    "gql_mutation_delete_tickets_perms": ["123003"],
-    "gql_query_categorys_perms": ["123004"],
-    "gql_mutation_create_categorys_perms": ["123005"],
-    "gql_mutation_update_categorys_perms": ["123006"],
-    "gql_mutation_delete_categorys_perms": ["123007"],
+    "gql_query_tickets_perms": ["127000"],
+    "gql_query_comments_perms": ["127004"],
+    "gql_mutation_create_tickets_perms": ["127001"],
+    "gql_mutation_update_tickets_perms": ["127002"],
+    "gql_mutation_delete_tickets_perms": ["127003"],
+    "gql_mutation_create_comment_perms": ["127005"],
     "tickets_attachments_root_path": None,
 
     "grievance_types": [DEFAULT_STRING, 'Category A', 'Category B'],
@@ -40,13 +38,11 @@ class TicketConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = MODULE_NAME
     gql_query_tickets_perms = []
+    gql_query_comments_perms = []
     gql_mutation_create_tickets_perms = []
     gql_mutation_update_tickets_perms = []
     gql_mutation_delete_tickets_perms = []
-    gql_query_categorys_perms = []
-    gql_mutation_create_categorys_perms = []
-    gql_mutation_update_categorys_perms = []
-    gql_mutation_delete_categorys_perms = []
+    gql_mutation_create_comment_perms = []
     tickets_attachments_root_path = None
 
     grievance_types = []
