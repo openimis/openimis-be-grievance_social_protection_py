@@ -34,17 +34,17 @@ class TicketGQLType(DjangoObjectType):
     @staticmethod
     def resolve_reporter_type(root, info):
         check_ticket_perms(info)
-        return root.reporter_type.id
+        return root.reporter_type.id if root.reporter_type else None
 
     @staticmethod
     def resolve_reporter_type_name(root, info):
         check_ticket_perms(info)
-        return root.reporter_type.name
+        return root.reporter_type.name if root.reporter_type else None
 
     @staticmethod
     def resolve_reporter(root, info):
         check_ticket_perms(info)
-        return model_obj_to_json(root.reporter)
+        return model_obj_to_json(root.reporter) if root.reporter else None
 
     class Meta:
         model = Ticket
@@ -83,17 +83,17 @@ class CommentGQLType(DjangoObjectType):
     @staticmethod
     def resolve_commenter_type(root, info):
         check_comment_perms(info)
-        return root.commenter_type.id
+        return root.commenter_type.id if root.commenter_type else None
 
     @staticmethod
     def resolve_commenter_type_name(root, info):
         check_comment_perms(info)
-        return root.commenter_type.name
+        return root.commenter_type.name if root.commenter_type else None
 
     @staticmethod
     def resolve_commenter(root, info):
         check_comment_perms(info)
-        return model_obj_to_json(root.commenter)
+        return model_obj_to_json(root.commenter) if root.commenter else None
 
     class Meta:
         model = Comment

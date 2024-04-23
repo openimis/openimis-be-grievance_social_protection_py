@@ -33,8 +33,9 @@ class TicketService(BaseService):
         return super().delete(obj_data)
 
     def _get_content_type(self, obj_data):
-        content_type = ContentType.objects.get(model=obj_data['reporter_type'].lower())
-        obj_data['reporter_type'] = content_type
+        if 'reporter_type' in obj_data:
+            content_type = ContentType.objects.get(model=obj_data['reporter_type'].lower())
+            obj_data['reporter_type'] = content_type
 
 
     def _generate_code(self, obj_data):
@@ -74,6 +75,6 @@ class CommentService:
         return output_result_success(dict_representation=dict_repr)
 
     def _get_content_type(self, obj_data):
-        content_type = ContentType.objects.get(model=obj_data['commenter_type'].lower())
-        obj_data['commenter_type'] = content_type
-
+        if 'commenter_type' in obj_data:
+            content_type = ContentType.objects.get(model=obj_data['commenter_type'].lower())
+            obj_data['commenter_type'] = content_type
