@@ -35,8 +35,6 @@ class CommentValidation:
     def validate_create(cls, user, **data):
         errors = [
             *validate_ticket_exists(data),
-            *validate_commenter_exists(data),
-            *validate_commenter_associated_with_ticket(data)
         ]
         if errors:
             raise ValidationError(errors)

@@ -29,8 +29,8 @@ class Ticket(HistoryBusinessModel):
     description = models.TextField(max_length=255, blank=True, null=True)
     code = models.CharField(max_length=16, unique=True, blank=True, null=True)
 
-    reporter_type = models.ForeignKey(ContentType, on_delete=models.DO_NOTHING, null=False, blank=False)
-    reporter_id = models.CharField(max_length=255, null=False, blank=False)
+    reporter_type = models.ForeignKey(ContentType, on_delete=models.DO_NOTHING, null=True, blank=True)
+    reporter_id = models.CharField(max_length=255, null=True, blank=True)
     reporter = GenericForeignKey('reporter_type', 'reporter_id')
 
     attending_staff = models.ForeignKey(User, models.DO_NOTHING, blank=True, null=True)
@@ -87,8 +87,8 @@ class TicketMutation(core_models.UUIDModel, core_models.ObjectMutation):
 
 class Comment(HistoryModel):
     ticket = models.ForeignKey(Ticket, on_delete=models.DO_NOTHING, null=False, blank=False)
-    commenter_type = models.ForeignKey(ContentType, on_delete=models.DO_NOTHING, null=False, blank=False)
-    commenter_id = models.CharField(max_length=255, null=False, blank=False)
+    commenter_type = models.ForeignKey(ContentType, on_delete=models.DO_NOTHING, null=True, blank=True)
+    commenter_id = models.CharField(max_length=255, null=True, blank=True)
     commenter = GenericForeignKey('commenter_type', 'commenter_id')
     comment = models.TextField(blank=False, null=False)
 

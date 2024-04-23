@@ -24,8 +24,8 @@ class CreateTicketInputType(OpenIMISMutation.Input):
     key = graphene.String(required=False)
     title = graphene.String(required=False)
     description = graphene.String(required=False)
-    reporter_type = graphene.String(required=True, max_lenght=255)
-    reporter_id = graphene.String(required=True, max_lenght=255)
+    reporter_type = graphene.String(required=False, max_lenght=255)
+    reporter_id = graphene.String(required=False, max_lenght=255)
     attending_staff_id = graphene.UUID(required=False)
     date_of_incident = graphene.Date(required=False)
     status = graphene.Field(TicketStatusEnum, required=False)
@@ -43,8 +43,8 @@ class UpdateTicketInputType(CreateTicketInputType):
 
 class CreateCommentInputType(OpenIMISMutation.Input):
     ticket_id = graphene.UUID(required=True)
-    commenter_type = graphene.String(required=True, max_lenght=255)
-    commenter_id = graphene.String(required=True, max_lenght=255)
+    commenter_type = graphene.String(required=False, max_lenght=255)
+    commenter_id = graphene.String(required=False, max_lenght=255)
     comment = graphene.String(required=True)
 
 
@@ -149,7 +149,8 @@ class CreateCommentMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
         if "client_mutation_label" in data:
             data.pop('client_mutation_label')
 
-        data['commenter_type'] = data.get('commenter_type', '').lower()
+        if "commenter_type" in data:
+            data['commenter_type'] = data.get('commenter_type', '').lower()
         service = CommentService(user)
         response = service.create(data)
 
