@@ -18,6 +18,7 @@ DEFAULT_CFG = {
     "gql_mutation_update_tickets_perms": ["127002"],
     "gql_mutation_delete_tickets_perms": ["127003"],
     "gql_mutation_create_comment_perms": ["127005"],
+    "gql_mutation_resolve_grievance_perms": ["127006"],
     "tickets_attachments_root_path": None,
 
     "grievance_types": [DEFAULT_STRING, 'Category A', 'Category B'],
@@ -42,6 +43,7 @@ class TicketConfig(AppConfig):
     gql_mutation_create_tickets_perms = []
     gql_mutation_update_tickets_perms = []
     gql_mutation_delete_tickets_perms = []
+    gql_mutation_resolve_grievance_perms = []
     gql_mutation_create_comment_perms = []
     tickets_attachments_root_path = None
 

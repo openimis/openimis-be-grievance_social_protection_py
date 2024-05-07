@@ -3,8 +3,7 @@ from django.utils.translation import gettext as _
 from django.contrib.contenttypes.models import ContentType
 
 from core.models import User
-from core.validation import BaseModelValidation
-from grievance_social_protection.apps import TicketConfig
+from core.validation import BaseModelValidation, ObjectExistsValidationMixin
 from grievance_social_protection.models import Ticket, Comment
 
 
@@ -28,7 +27,7 @@ class TicketValidation(BaseModelValidation):
             raise ValidationError(errors)
 
 
-class CommentValidation:
+class CommentValidation(ObjectExistsValidationMixin):
     OBJECT_TYPE = Comment
 
     @classmethod
@@ -36,6 +35,13 @@ class CommentValidation:
         errors = [
             *validate_ticket_exists(data),
         ]
+        if errors:
+            raise ValidationError(errors)
+
+    @classmethod
+    def validate_resolve_grievance_by_comment(cls, user, **data):
+        cls.validate_object_exists(data.get('id'))
+        errors = []
         if errors:
             raise ValidationError(errors)
 

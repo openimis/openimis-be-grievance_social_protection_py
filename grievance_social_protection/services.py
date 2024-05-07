@@ -27,16 +27,41 @@ class TicketService(BaseService):
         self._get_content_type(obj_data)
         return super().update(obj_data)
 
-
     @register_service_signal('ticket_service.delete')
     def delete(self, obj_data):
         return super().delete(obj_data)
+
+    @register_service_signal('ticket_service.reopen_ticket')
+    @check_authentication
+    def reopen_ticket(self, obj_data):
+        try:
+            with transaction.atomic():
+                self.validation_class.validate_update(self.user, **obj_data)
+                ticket_id = obj_data.get('id')
+                ticket = Ticket.objects.filter(id=ticket_id).first()
+                ticket.status = Ticket.TicketStatus.OPEN
+                self._check_if_comment_resolution(ticket_id)
+                ticket.save(username=self.user.username)
+                return {
+                    "success": True,
+                    "message": "Ok",
+                    "detail": "reopen_ticket",
+                }
+        except Exception as exc:
+            return output_exception(model_name=self.OBJECT_TYPE.__name__, method="reopen_ticket", exception=exc)
+
+    @transaction.atomic
+    def _check_if_comment_resolution(self, ticket_id):
+        comment_queryset = Comment.objects.filter(ticket_id=ticket_id, is_resolution=True)
+        if comment_queryset.exists():
+            comment = comment_queryset.first()
+            comment.is_resolution = False
+            comment.save(username=self.user.username)
 
     def _get_content_type(self, obj_data):
         if 'reporter_type' in obj_data:
             content_type = ContentType.objects.get(model=obj_data['reporter_type'].lower())
             obj_data['reporter_type'] = content_type
-
 
     def _generate_code(self, obj_data):
         if not obj_data.get('code'):
@@ -63,11 +88,52 @@ class CommentService:
         try:
             with transaction.atomic():
                 self._get_content_type(obj_data)
+                ticket_id = obj_data.get('ticket_id')
                 self.validation_class.validate_create(self.user, **obj_data)
-                obj_ = self.OBJECT_TYPE(**obj_data)
-                return self.save_instance(obj_)
+
+                comment_obj = self.OBJECT_TYPE(**obj_data)
+                response_data = self.save_instance(comment_obj)
+                self._update_ticket_comment_ids(ticket_id, response_data['data']['id'])
+
+                return response_data
+
         except Exception as exc:
-            return output_exception(model_name=self.OBJECT_TYPE.__name__, method="create", exception=exc)
+            return output_exception(
+                model_name=self.OBJECT_TYPE.__name__,
+                method="create",
+                exception=exc
+            )
+
+    @transaction.atomic
+    def _update_ticket_comment_ids(self, ticket_id, comment_id):
+        ticket = Ticket.objects.filter(id=ticket_id).first()
+        if ticket:
+            json_ext = ticket.json_ext or {}
+            comment_ids = json_ext.get('comment_ids', [])
+            comment_ids.append(comment_id)
+            json_ext['comment_ids'] = comment_ids
+            ticket.json_ext = json_ext
+            ticket.save(username=self.user.username)
+
+    @register_service_signal('comment_service.resolve_grievance_by_comment')
+    @check_authentication
+    def resolve_grievance_by_comment(self, obj_data):
+        try:
+            with transaction.atomic():
+                self.validation_class.validate_resolve_grievance_by_comment(self.user, **obj_data)
+                comment = Comment.objects.filter(id=obj_data.get('id')).first()
+                ticket = comment.ticket
+                ticket.status = Ticket.TicketStatus.CLOSED
+                comment.is_resolution = True
+                ticket.save(username=self.user.username)
+                comment.save(username=self.user.username)
+                return {
+                    "success": True,
+                    "message": "Ok",
+                    "detail": "resolve_grievance_by_comment",
+                }
+        except Exception as exc:
+            return output_exception(model_name=self.OBJECT_TYPE.__name__, method="resolve_grievance_by_comment", exception=exc)
 
     def save_instance(self, obj_):
         obj_.save(username=self.user.username)

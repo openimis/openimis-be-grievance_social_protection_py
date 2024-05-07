@@ -40,6 +40,9 @@ class CreateTicketInputType(OpenIMISMutation.Input):
 class UpdateTicketInputType(CreateTicketInputType):
     id = graphene.UUID(required=True)
 
+class ResolveGrievanceByCommentInputType(OpenIMISMutation.Input):
+    id = graphene.UUID(required=True)
+
 
 class CreateCommentInputType(OpenIMISMutation.Input):
     ticket_id = graphene.UUID(required=True)
@@ -159,6 +162,70 @@ class CreateCommentMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
         return None
 
     class Input(CreateCommentInputType):
+        pass
+
+
+class ResolveGrievanceByCommentMutation(BaseHistoryModelUpdateMutationMixin, BaseMutation):
+    _mutation_class = "ResolveGrievanceByCommentMutation"
+    _mutation_module = "grievance_social_protection"
+    _model = Comment
+
+    @classmethod
+    def _validate_mutation(cls, user, **data):
+        super()._validate_mutation(user, **data)
+        if not user.has_perms(TicketConfig.gql_mutation_resolve_grievance_perms):
+            raise ValidationError("mutation.authentication_required")
+
+    @classmethod
+    def _mutate(cls, user, **data):
+        client_mutation_id = data.pop('client_mutation_id')
+        if "client_mutation_label" in data:
+            data.pop('client_mutation_label')
+
+        service = CommentService(user)
+        response = service.resolve_grievance_by_comment(data)
+        if client_mutation_id:
+            comment_id = data.get('id')
+            ticket = Comment.objects.get(id=comment_id).ticket
+            TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, Ticket=ticket)
+
+        if not response['success']:
+            return response
+        return None
+
+    class Input(ResolveGrievanceByCommentInputType):
+        pass
+
+
+class ReopenTicketMutation(BaseHistoryModelUpdateMutationMixin, BaseMutation):
+    _mutation_class = "ReopenTicketMutation"
+    _mutation_module = "grievance_social_protection"
+    _model = Ticket
+
+    @classmethod
+    def _validate_mutation(cls, user, **data):
+        super()._validate_mutation(user, **data)
+        if not user.has_perms(TicketConfig.gql_mutation_update_tickets_perms):
+            raise ValidationError("mutation.authentication_required")
+
+    @classmethod
+    def _mutate(cls, user, **data):
+        client_mutation_id = data.pop('client_mutation_id')
+        if "client_mutation_label" in data:
+            data.pop('client_mutation_label')
+
+        service = TicketService(user)
+        response = service.reopen_ticket(data)
+        if client_mutation_id:
+            ticket_id = data.get('id')
+            ticket = Ticket.objects.get(id=ticket_id)
+            TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, Ticket=ticket)
+
+        if not response['success']:
+            return response
+        return None
+
+    class Input(ResolveGrievanceByCommentInputType):
         pass
 
 # class CreateTicketAttachmentMutation(OpenIMISMutation):

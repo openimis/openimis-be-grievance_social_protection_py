@@ -91,11 +91,21 @@ class Comment(HistoryModel):
     commenter_id = models.CharField(max_length=255, null=True, blank=True)
     commenter = GenericForeignKey('commenter_type', 'commenter_id')
     comment = models.TextField(blank=False, null=False)
+    is_resolution = models.BooleanField(blank=False, null=False, default=False)
 
     def clean(self):
         super().clean()
         if self.commenter:
             check_if_user_or_individual(self.commenter)
+
+        if self.is_resolution:
+            existing_resolved_comments = Comment.objects.filter(ticket=self.ticket, is_resolution=True)
+
+            if self.id:
+                existing_resolved_comments = existing_resolved_comments.exclude(id=self.id)
+
+            if existing_resolved_comments.exists():
+                raise ValueError("Another comment for this ticket is already marked as resolved.")
 
 
 # LEFT IF NEEDED IN THE FUTURE
