@@ -30,6 +30,7 @@ class TicketGQLType(DjangoObjectType):
     reporter = graphene.JSONString()
     reporter_type = graphene.Int()
     reporter_type_name = graphene.String()
+    is_history = graphene.Boolean()
 
     @staticmethod
     def resolve_reporter_type(root, info):
@@ -46,12 +47,19 @@ class TicketGQLType(DjangoObjectType):
         check_ticket_perms(info)
         return model_obj_to_json(root.reporter) if root.reporter else None
 
+    @staticmethod
+    def resolve_is_history(root, info):
+        check_ticket_perms(info)
+        return not root.version == Ticket.objects.get(id=root.id).version
+
     class Meta:
         model = Ticket
         interfaces = (graphene.relay.Node,)
         filter_fields = {
             "id": ["exact", "isnull"],
+            "version": ["exact"],
             "key": ["exact", "istartswith", "icontains", "iexact"],
+            "code": ["exact", "istartswith", "icontains", "iexact"],
             "title": ["exact", "istartswith", "icontains", "iexact"],
             "description": ["exact", "istartswith", "icontains", "iexact"],
             "status": ["exact", "istartswith", "icontains", "iexact"],
@@ -102,6 +110,7 @@ class CommentGQLType(DjangoObjectType):
             "id": ["exact", "isnull"],
             "comment": ["exact", "istartswith", "icontains", "iexact"],
             "date_created": ["exact", "istartswith", "icontains", "iexact"],
+            "is_resolution": ["exact"],
             **prefix_filterset("ticket__", TicketGQLType._meta.filter_fields),
         }
 

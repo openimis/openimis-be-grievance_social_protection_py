@@ -1,9 +1,8 @@
+import graphene
 from django.contrib.auth.models import AnonymousUser
 
-from core import filter_validity
-from core.schema import OrderedDjangoFilterConnectionField, OpenIMISMutation
+from core.schema import OrderedDjangoFilterConnectionField
 from core.schema import signal_mutation_module_validate
-from graphene_django.filter import DjangoFilterConnectionField
 from django.db.models import Q
 import graphene_django_optimizer as gql_optimizer
 
@@ -22,6 +21,7 @@ class Query(graphene.ObjectType):
         orderBy=graphene.List(of_type=graphene.String),
         show_history=graphene.Boolean(),
         client_mutation_id=graphene.String(),
+        ticket_version=graphene.Int(),
     )
 
     ticketsStr = OrderedDjangoFilterConnectionField(
@@ -58,7 +58,7 @@ class Query(graphene.ObjectType):
             Ticket.objects.filter(*append_validity_filter(**kwargs)).all().order_by('ticket_title', ), info
         )
 
-    def resolve_ticket(self, info, **kwargs):
+    def resolve_tickets(self, info, **kwargs):
         """
         Extra steps to perform when Scheme is queried
         """
@@ -66,17 +66,23 @@ class Query(graphene.ObjectType):
         if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
             raise PermissionDenied(_("unauthorized"))
         filters = []
-
-        # Used to specify if user want to see all records including invalid records as history
-        show_history = kwargs.get('show_history', False)
-        if not show_history:
-            filters += append_validity_filter(**kwargs)
+        model = Ticket
 
         client_mutation_id = kwargs.get("client_mutation_id", None)
         if client_mutation_id:
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
 
-        return gql_optimizer.query(Ticket.objects.filter(*filters).all(), info)
+        # Used to specify if user want to see all records including invalid records as history
+        show_history = kwargs.get('show_history', False)
+        ticket_version = kwargs.get('ticket_version', False)
+        if show_history or ticket_version:
+            if ticket_version:
+                filters.append(Q(version=ticket_version))
+            query = model.history.filter(*filters).all().as_instances()
+        else:
+            query = model.objects.filter(*filters, is_deleted=False).all()
+
+        return gql_optimizer.query(query, info)
 
     def resolve_ticketsStr(self, info, **kwargs):
         """
@@ -122,6 +128,9 @@ class Mutation(graphene.ObjectType):
     delete_Ticket = DeleteTicketMutation.Field()
 
     create_comment = CreateCommentMutation.Field()
+
+    resolve_grievance_by_comment = ResolveGrievanceByCommentMutation.Field()
+    reopen_ticket = ReopenTicketMutation.Field()
 
     # create_ticket_attachment = CreateTicketAttachmentMutation.Field()
     # update_ticket_attachment = UpdateTicketAttachmentMutation.Field()
