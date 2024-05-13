@@ -27,4 +27,5 @@ jobs:
       SONAR_PROJECT_VERSION: 1.0
       SONAR_SOURCES: grievance_social_protection
       SONAR_EXCLUSIONS: "**/migrations/**,**/static/**,**/media/**,**/tests/**"
+      branchName: coreMIS
 
