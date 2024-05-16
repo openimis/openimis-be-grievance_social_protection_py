@@ -8,11 +8,12 @@ import core
 from core import models as core_models
 from core.models import HistoryBusinessModel, User, HistoryModel
 from individual.models import Individual
+from social_protection.models import Beneficiary
 
 
 def check_if_user_or_individual(generic_field):
-    if not isinstance(generic_field, (User, Individual)):
-        raise ValueError('Reporter must be either a User or an Individual.')
+    if not isinstance(generic_field, (User, Individual, Beneficiary)):
+        raise ValueError('Reporter must be either a User or a Beneficiary or an Individual.')
 
 
 class Ticket(HistoryBusinessModel):
