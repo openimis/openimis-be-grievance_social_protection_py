@@ -32,6 +32,9 @@ if 'opensearch_reports' in apps.app_configs:
         class Django:
             model = Ticket
             fields = [
-                'id', 'key', 'title', 'code'
+                'id', 'key', 'title', 'code',
+                'description', 'attending_staff',
+                'status', 'category', 'flags',
+                'channel', 'resolution'
             ]
             queryset_pagination = 5000
