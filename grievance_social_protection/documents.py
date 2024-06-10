@@ -35,18 +35,3 @@ if 'opensearch_reports' in apps.app_configs:
                 'id', 'key', 'title', 'code'
             ]
             queryset_pagination = 5000
-
-        def prepare_json_ext(self, instance):
-            json_ext_data = instance.json_ext
-            json_data = self.__flatten_dict(json_ext_data)
-            return json_data
-
-        def __flatten_dict(self, d, parent_key='', sep='__'):
-            items = {}
-            for k, v in d.items():
-                new_key = f"{parent_key}{sep}{k}" if parent_key else k
-                if isinstance(v, dict):
-                    items.update(self.__flatten_dict(v, new_key, sep=sep))
-                else:
-                    items[new_key] = v
-            return items
