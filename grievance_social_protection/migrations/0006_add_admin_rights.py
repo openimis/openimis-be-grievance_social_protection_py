@@ -9,14 +9,14 @@ from core.utils import insert_role_right_for_system
 
 def add_rights(apps, schema_editor):
 
-    insert_role_right_for_system(64, 123000)  # search
-    insert_role_right_for_system(64, 123001)  # create
-    insert_role_right_for_system(64, 123002)  # update
-    insert_role_right_for_system(64, 123003)  # delete
-    insert_role_right_for_system(64, 123004)  # search
-    insert_role_right_for_system(64, 123005)  # create
-    insert_role_right_for_system(64, 123006)  # update
-    insert_role_right_for_system(64, 123007)  # delete
+    insert_role_right_for_system(64, 123000, apps)  # search
+    insert_role_right_for_system(64, 123001, apps)  # create
+    insert_role_right_for_system(64, 123002, apps)  # update
+    insert_role_right_for_system(64, 123003, apps)  # delete
+    insert_role_right_for_system(64, 123004, apps)  # search
+    insert_role_right_for_system(64, 123005, apps)  # create
+    insert_role_right_for_system(64, 123006, apps)  # update
+    insert_role_right_for_system(64, 123007, apps)  # delete
 
 
 class Migration(migrations.Migration):

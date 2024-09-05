@@ -19,24 +19,24 @@ def add_rights(apps, schema_editor):
     """
     Add subscription CRUD permission to the IMIS Administrator.
     """
-    insert_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_query_tickets_perms)
-    insert_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_query_comments_perms)
-    insert_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_create_tickets_perms)
-    insert_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_update_tickets_perms)
-    insert_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_delete_tickets_perms)
-    insert_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_create_comment_perms)
+    insert_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_query_tickets_perms, apps)
+    insert_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_query_comments_perms, apps)
+    insert_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_create_tickets_perms, apps)
+    insert_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_update_tickets_perms, apps)
+    insert_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_delete_tickets_perms, apps)
+    insert_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_create_comment_perms, apps)
 
 
 def remove_rights(apps, schema_editor):
     """
     Remove subscription CRUD permissions to the IMIS Administrator.
     """
-    remove_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_query_tickets_perms)
-    remove_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_query_comments_perms)
-    remove_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_create_tickets_perms)
-    remove_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_update_tickets_perms)
-    remove_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_delete_tickets_perms)
-    remove_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_create_comment_perms)
+    remove_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_query_tickets_perms, apps)
+    remove_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_query_comments_perms, apps)
+    remove_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_create_tickets_perms, apps)
+    remove_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_update_tickets_perms, apps)
+    remove_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_delete_tickets_perms, apps)
+    remove_role_right_for_system(IMIS_ADMIN_ROLE_IS_SYSTEM, gql_mutation_create_comment_perms, apps)
 
 
 class Migration(migrations.Migration):
