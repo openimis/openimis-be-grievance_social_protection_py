@@ -6,7 +6,7 @@ is_unit_test_env = getattr(settings, 'IS_UNIT_TEST_ENV', False)
 # Check if the 'opensearch_reports' app is in INSTALLED_APPS
 if 'opensearch_reports' in apps.app_configs and not is_unit_test_env:
     from opensearch_reports.service import BaseSyncDocument
-    from django_opensearch_dsl import Document, fields as opensearch_fields
+    from django_opensearch_dsl import fields as opensearch_fields
     from django_opensearch_dsl.registries import registry
     from grievance_social_protection.models import Ticket
 
