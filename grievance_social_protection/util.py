@@ -17,6 +17,6 @@ def underscore_to_camel(name):
 
 def model_obj_to_json(model_obj):
     model_obj_dict = model_obj.__dict__
-    model_obj_dict.pop('_state')
+    model_obj_dict.pop('_state', None)
     model_obj_dict = {underscore_to_camel(k): v for k, v in list(model_obj_dict.items())}
     return json.dumps(model_obj_dict, cls=DjangoJSONEncoder)
