@@ -117,7 +117,7 @@ class Query(graphene.ObjectType):
         user = info.context.user
         if type(user) is AnonymousUser:
             raise PermissionDenied(_("unauthorized"))
-        if not user.is_imis_admin:
+        if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
             raise PermissionDenied(_("unauthorized"))
         return GrievanceTypeConfigurationGQLType()
 
