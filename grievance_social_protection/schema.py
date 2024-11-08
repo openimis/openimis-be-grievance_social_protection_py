@@ -5,7 +5,7 @@ from core.schema import (
     OrderedDjangoFilterConnectionField,
     signal_mutation_module_validate
 )
-from core.service import wait_for_mutation
+from core.services import wait_for_mutation
 
 from django.db.models import Q
 import graphene_django_optimizer as gql_optimizer
