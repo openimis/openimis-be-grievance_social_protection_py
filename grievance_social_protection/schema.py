@@ -1,8 +1,12 @@
 import graphene
 from django.contrib.auth.models import AnonymousUser
 
-from core.schema import OrderedDjangoFilterConnectionField
-from core.schema import signal_mutation_module_validate
+from core.schema import (
+    OrderedDjangoFilterConnectionField,
+    signal_mutation_module_validate
+)
+from core.service import wait_for_mutation
+
 from django.db.models import Q
 import graphene_django_optimizer as gql_optimizer
 
@@ -70,6 +74,7 @@ class Query(graphene.ObjectType):
 
         client_mutation_id = kwargs.get("client_mutation_id", None)
         if client_mutation_id:
+            wait_for_mutation(client_mutation_id)
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
 
         # Used to specify if user want to see all records including invalid records as history
@@ -100,6 +105,7 @@ class Query(graphene.ObjectType):
 
         client_mutation_id = kwargs.get("client_mutation_id", None)
         if client_mutation_id:
+            wait_for_mutation(client_mutation_id)
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
 
         # str = kwargs.get('str')
