@@ -73,7 +73,7 @@ class CreateTicketMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
         if client_mutation_id:
             ticket_id = response['data']['id']
             ticket = Ticket.objects.get(id=ticket_id)
-            TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, Ticket=ticket)
+            TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, ticket=ticket)
 
         if not response['success']:
             return response
@@ -105,7 +105,7 @@ class UpdateTicketMutation(BaseHistoryModelUpdateMutationMixin, BaseMutation):
         if client_mutation_id:
             ticket_id = response['data']['id']
             ticket = Ticket.objects.get(id=ticket_id)
-            TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, Ticket=ticket)
+            TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, ticket=ticket)
 
         if not response['success']:
             return response
@@ -187,7 +187,7 @@ class ResolveGrievanceByCommentMutation(BaseHistoryModelUpdateMutationMixin, Bas
         if client_mutation_id:
             comment_id = data.get('id')
             ticket = Comment.objects.get(id=comment_id).ticket
-            TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, Ticket=ticket)
+            TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, ticket=ticket)
 
         if not response['success']:
             return response
