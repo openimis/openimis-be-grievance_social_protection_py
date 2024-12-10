@@ -77,7 +77,7 @@ def validate_resolution(data):
     pattern = r"^(?P<days>[0-9]{1,2}),(?P<hours>[0-9]{1,2})$"
     match = re.match(pattern, resolution)
     if not match:
-        return {"message": _("validations.CommentValidation.validate_resolution.invalid_format")}
+        return {"message": _("validations.TicketValidation.validate_resolution.invalid_format")}
     else:
         days = int(match.group("days"))
         hours = int(match.group("hours"))
