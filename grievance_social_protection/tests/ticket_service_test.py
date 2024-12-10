@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from grievance_social_protection.models import Ticket
@@ -36,20 +37,23 @@ class TicketServiceTest(TestCase):
         self.assertEqual(query.count(), 1)
 
     def test_add_ticket_validation(self):
-        result = self.service.create(service_add_ticket_payload_bad_resolution)
-        self.assertFalse(result.get('success'))
-        self.assertEqual(result.get('detail'),
-                         f"['{_('validations.CommentValidation.validate_resolution.invalid_format')}']")
+        with self.assertRaises(ValidationError) as context:
+            self.service.create(service_add_ticket_payload_bad_resolution)
 
-        result = self.service.create(service_add_ticket_payload_bad_resolution_day)
-        self.assertFalse(result.get('success'))
-        self.assertEqual(result.get('detail'),
-                         f"['{_('validations.TicketValidation.validate_resolution.invalid_day_value')}']")
+        exception = context.exception
+        self.assertIn(_('validations.CommentValidation.validate_resolution.invalid_format'), str(exception))
 
-        result = self.service.create(service_add_ticket_payload_bad_resolution_hour)
-        self.assertFalse(result.get('success'))
-        self.assertEqual(result.get('detail'),
-                         f"['{_('validations.TicketValidation.validate_resolution.invalid_hour_value')}']")
+        with self.assertRaises(ValidationError) as context:
+            self.service.create(service_add_ticket_payload_bad_resolution_day)
+
+        exception = context.exception
+        self.assertIn(_('validations.CommentValidation.validate_resolution.invalid_day_value'), str(exception))
+
+        with self.assertRaises(ValidationError) as context:
+            self.service.create(service_add_ticket_payload_bad_resolution_hour)
+
+        exception = context.exception
+        self.assertIn(_('validations.CommentValidation.validate_resolution.invalid_hour_value'), str(exception))
 
     def test_update_ticket(self):
         update_payload = {
