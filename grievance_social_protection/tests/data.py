@@ -23,7 +23,7 @@ service_add_ticket_payload_bad_resolution = {
 service_add_ticket_payload_bad_resolution_day = {
     "category": "Default",
     "title": "Test",
-    "resolution": "100,5",
+    "resolution": "99,5",
     "priority": "High",
     "date_of_incident": "2024-11-20",
     "channel": "Channel A",

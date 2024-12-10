@@ -41,19 +41,19 @@ class TicketServiceTest(TestCase):
             self.service.create(service_add_ticket_payload_bad_resolution)
 
         exception = context.exception
-        self.assertIn(_('validations.CommentValidation.validate_resolution.invalid_format'), str(exception))
+        self.assertIn(_('validations.TicketValidation.validate_resolution.invalid_format'), str(exception))
 
         with self.assertRaises(ValidationError) as context:
             self.service.create(service_add_ticket_payload_bad_resolution_day)
 
         exception = context.exception
-        self.assertIn(_('validations.CommentValidation.validate_resolution.invalid_day_value'), str(exception))
+        self.assertIn(_('validations.TicketValidation.validate_resolution.invalid_day_value'), str(exception))
 
         with self.assertRaises(ValidationError) as context:
             self.service.create(service_add_ticket_payload_bad_resolution_hour)
 
         exception = context.exception
-        self.assertIn(_('validations.CommentValidation.validate_resolution.invalid_hour_value'), str(exception))
+        self.assertIn(_('validations.TicketValidation.validate_resolution.invalid_hour_value'), str(exception))
 
     def test_update_ticket(self):
         update_payload = {
@@ -70,3 +70,31 @@ class TicketServiceTest(TestCase):
         self.assertEqual(updated_ticket.resolution, update_payload.get('resolution'))
         self.assertEqual(updated_ticket.priority, update_payload.get('priority'))
         self.assertEqual(updated_ticket.status, update_payload.get('status'))
+
+    def test_update_ticket_validation(self):
+        with self.assertRaises(ValidationError) as context:
+            self.service.update({
+                "id": self.ticket.uuid,
+                **service_add_ticket_payload_bad_resolution
+            })
+
+        exception = context.exception
+        self.assertIn(_('validations.TicketValidation.validate_resolution.invalid_format'), str(exception))
+
+        with self.assertRaises(ValidationError) as context:
+            self.service.update({
+                "id": self.ticket.uuid,
+                **service_add_ticket_payload_bad_resolution_day
+            })
+
+        exception = context.exception
+        self.assertIn(_('validations.TicketValidation.validate_resolution.invalid_day_value'), str(exception))
+
+        with self.assertRaises(ValidationError) as context:
+            self.service.update({
+                "id": self.ticket.uuid,
+                **service_add_ticket_payload_bad_resolution_hour
+            })
+
+        exception = context.exception
+        self.assertIn(_('validations.TicketValidation.validate_resolution.invalid_hour_value'), str(exception))
