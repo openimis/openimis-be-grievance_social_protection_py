@@ -3,7 +3,7 @@ service_add_ticket_payload = {
     "title": "Test",
     "resolution": "8,7",
     "priority": "High",
-    "dateOfIncident": "2024-11-20",
+    "date_of_incident": "2024-11-20",
     "channel": "Channel A",
     "flags": "Default",
 }
@@ -14,7 +14,7 @@ service_add_ticket_payload_bad_resolution = {
     "title": "Test",
     "resolution": "sdasdasadsda",
     "priority": "High",
-    "dateOfIncident": "2024-11-20",
+    "date_of_incident": "2024-11-20",
     "channel": "Channel A",
     "flags": "Default",
 }
@@ -25,7 +25,7 @@ service_add_ticket_payload_bad_resolution_day = {
     "title": "Test",
     "resolution": "100,5",
     "priority": "High",
-    "dateOfIncident": "2024-11-20",
+    "date_of_incident": "2024-11-20",
     "channel": "Channel A",
     "flags": "Default",
 }
@@ -36,7 +36,7 @@ service_add_ticket_payload_bad_resolution_hour = {
     "title": "Test",
     "resolution": "1,54",
     "priority": "High",
-    "dateOfIncident": "2024-11-20",
+    "date_of_incident": "2024-11-20",
     "channel": "Channel A",
     "flags": "Default",
 }
