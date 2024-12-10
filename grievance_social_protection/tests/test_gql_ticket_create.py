@@ -68,7 +68,7 @@ class GQLTicketCreateTestCase(TestCase):
         self.assertEquals(ticket.category, self.category)
         self.assertEquals(ticket.resolution, self.resolution)
         self.assertEquals(ticket.priority, self.priority)
-        self.assertEquals(ticket.date_of_incident, self.date_of_incident)
+        self.assertEquals(str(ticket.date_of_incident), self.date_of_incident)
         self.assertEquals(ticket.flags, self.flags)
 
     def test_create_ticket_false_invalid_resolution_format(self):
