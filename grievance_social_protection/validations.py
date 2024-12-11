@@ -79,7 +79,7 @@ def validate_commenter_associated_with_ticket(data):
     reporter_tickets = Ticket.objects.filter(reporter_type=commenter_type, reporter_id=commenter_id)
     if reporter_tickets.exists():
         return []
-
+    print('test')
     return [{"message": _("validations.CommentValidation.commenter_not_associated_with_ticket")}]
 
 
