@@ -12,7 +12,6 @@ def create_ticket(username):
 
 
 def create_comment_for_existing_ticket(user, ticket):
-    ticket.save(user=user)
     comment = Comment({
         "ticket_id": ticket.id,
         "comment": "awesome comment"
