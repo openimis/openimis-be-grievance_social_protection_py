@@ -15,7 +15,6 @@ class GQLTicketUpdateTestCase(TestCase):
             self.user = user
 
     user = None
-    eu = None
 
     category = None
     title = None
@@ -25,6 +24,7 @@ class GQLTicketUpdateTestCase(TestCase):
     channel = None
     flags = None
     status = None
+    existing_ticket = None
 
     @classmethod
     def setUpClass(cls):
