@@ -50,7 +50,7 @@ class GQLTicketReopenTestCase(TestCase):
 
     def test_reopen_ticket_success(self):
         mutation_id = "12j123h5g42h04xc66"
-        self.assertEquals(self.existing_ticket, self.status_before_reopening)
+        self.assertEquals(self.existing_ticket.status, self.status_before_reopening)
         self.assertEquals(self.existing_comment.is_resolution, True)
         payload = gql_mutation_reopen_ticket % (
             self.existing_ticket.id,
