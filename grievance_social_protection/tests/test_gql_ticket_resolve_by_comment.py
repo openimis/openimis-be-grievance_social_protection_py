@@ -40,7 +40,7 @@ class GQLTicketResolveByCommentTestCase(TestCase):
     def test_resolve_ticket_by_comment_success(self):
         mutation_id = "99g154h5b92h11sd33"
         payload = gql_mutation_resolve_ticket_by_comment % (
-            self.comment.id,
+            self.existing_comment.id,
             mutation_id
         )
 
