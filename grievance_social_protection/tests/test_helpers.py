@@ -12,7 +12,7 @@ def create_ticket(username):
 
 
 def create_comment_for_existing_ticket(user, ticket):
-    comment = Comment({
+    comment = Comment(**{
         "ticket_id": ticket.id,
         "comment": "awesome comment"
     })
