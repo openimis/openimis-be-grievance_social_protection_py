@@ -3,6 +3,10 @@ from core.models import MutationLog
 from graphene import Schema
 from graphene.test import Client
 from core.test_helpers import create_test_interactive_user
+from grievance_social_protection.models import (
+    Comment,
+    Ticket
+)
 from grievance_social_protection.schema import Query, Mutation
 from grievance_social_protection.tests.gql_payloads import gql_mutation_resolve_ticket_by_comment
 from grievance_social_protection.tests.test_helpers import (
@@ -46,6 +50,8 @@ class GQLTicketResolveByCommentTestCase(TestCase):
 
         _ = self.gql_client.execute(payload, context=self.gql_context)
         mutation_log = MutationLog.objects.get(client_mutation_id=mutation_id)
+        comment = Comment.objects.get(id=self.existing_comment.id)
+        ticket = Ticket.objects.get(id=self.existing_ticket.id)
         self.assertFalse(mutation_log.error)
-        self.assertEquals(self.existing_comment.is_resolution, True)
-        self.assertEquals(self.existing_ticket.status, self.status)
+        self.assertEquals(comment.is_resolution, True)
+        self.assertEquals(ticket.status, self.status)

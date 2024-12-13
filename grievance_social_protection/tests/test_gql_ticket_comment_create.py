@@ -63,7 +63,7 @@ class GQLTicketCommentCreateTestCase(TestCase):
         comment = Comment.objects.get(ticket_id=self.existing_ticket.id)
         self.assertEquals(comment.ticket.id, self.existing_ticket.id)
         self.assertEquals(comment.comment, self.comment)
-        self.assertEquals(comment.commenter_id, self.individual.id)
+        self.assertEquals(comment.commenter_id, str(self.individual.id))
         self.assertEquals(comment.is_resolution, False)
         self.assertEquals(str(comment.commenter_type), self.type)
 
@@ -83,7 +83,7 @@ class GQLTicketCommentCreateTestCase(TestCase):
         self.assertEquals(comment.comment, self.comment)
         self.assertEquals(comment.commenter_id, None)
         self.assertEquals(comment.is_resolution, False)
-        self.assertEquals(str(comment.commenter_type), None)
+        self.assertEquals(comment.commenter_type, None)
 
     @classmethod
     def __create_individual(cls):
