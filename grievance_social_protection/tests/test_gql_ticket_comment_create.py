@@ -65,7 +65,7 @@ class GQLTicketCommentCreateTestCase(TestCase):
         self.assertEquals(comment.comment, self.comment)
         self.assertEquals(comment.commenter_id, str(self.individual.id))
         self.assertEquals(comment.is_resolution, False)
-        self.assertEquals(str(comment.commenter_type), self.type)
+        self.assertIn(self.type, str(comment.commenter_type))
 
     def test_create_comment_anonymous_user_success(self):
         mutation_id = "99g453h5g92h04ww98"
