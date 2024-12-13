@@ -33,7 +33,7 @@ class GQLTicketCommentCreateTestCase(TestCase):
     def setUpClass(cls):
         super(GQLTicketCommentCreateTestCase, cls).setUpClass()
         cls.user = create_test_interactive_user(username='user_authorized', roles=[7])
-        cls.existing_ticket = create_ticket(cls.user.username)
+        cls.existing_ticket = create_ticket(cls.user)
 
         gql_schema = Schema(
             query=Query,

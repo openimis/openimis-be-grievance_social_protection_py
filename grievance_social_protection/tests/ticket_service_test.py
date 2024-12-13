@@ -27,7 +27,7 @@ class TicketServiceTest(TestCase):
         cls.user = LogInHelper().get_or_create_user_api()
         cls.service = TicketService(cls.user)
         cls.query_all = Ticket.objects.filter(is_deleted=False)
-        cls.ticket = create_ticket(cls.user.username)
+        cls.ticket = create_ticket(cls.user)
 
     def test_add_ticket(self):
         result = self.service.create(service_add_ticket_payload)

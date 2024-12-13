@@ -74,3 +74,14 @@ mutation resolveGrievanceByComment {
   }
 }
 """
+
+gql_mutation_reopen_ticket = """
+mutation reopenTicket {
+  reopenTicket(input: {
+    id: "%s",
+    clientMutationId: "%s"
+  }) {
+    clientMutationId
+  }
+}
+"""
