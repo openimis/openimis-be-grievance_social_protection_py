@@ -1,6 +1,7 @@
 import graphene
 from graphene import ObjectType
 from graphene_django import DjangoObjectType
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.utils.translation import gettext as _
 
@@ -32,6 +33,10 @@ class TicketGQLType(DjangoObjectType):
     reporter_type_name = graphene.String()
     is_history = graphene.Boolean()
 
+    reporter_first_name = graphene.String()
+    reporter_last_name = graphene.String()
+    reporter_dob = graphene.String()
+
     @staticmethod
     def resolve_reporter_type(root, info):
         check_ticket_perms(info)
@@ -51,6 +56,54 @@ class TicketGQLType(DjangoObjectType):
     def resolve_is_history(root, info):
         check_ticket_perms(info)
         return not root.version == Ticket.objects.get(id=root.id).version
+
+    @staticmethod
+    def resolve_reporter_first_name(root, info):
+        check_ticket_perms(info)
+        if root.reporter_type:
+            content_type = ContentType.objects.get_for_model(root.reporter_type.model_class())
+            if content_type:
+                model_object = content_type.get_object_for_this_type(pk=root.reporter_id)
+                if model_object:
+                    if root.reporter_type.name == 'individual':
+                        return model_object.first_name
+                    elif root.reporter_type.name == 'beneficiary':
+                        return model_object.individual.first_name
+                    elif root.reporter_type.name == 'user':
+                        return None
+        return None
+
+    @staticmethod
+    def resolve_reporter_last_name(root, info):
+        check_ticket_perms(info)
+        if root.reporter_type:
+            content_type = ContentType.objects.get_for_model(root.reporter_type.model_class())
+            if content_type:
+                model_object = content_type.get_object_for_this_type(pk=root.reporter_id)
+                if model_object:
+                    if root.reporter_type.name == 'individual':
+                        return model_object.last_name
+                    elif root.reporter_type.name == 'beneficiary':
+                        return model_object.individual.last_name
+                    elif root.reporter_type.name == 'user':
+                        return None
+        return None
+
+    @staticmethod
+    def resolve_reporter_dob(root, info):
+        check_ticket_perms(info)
+        if root.reporter_type:
+            content_type = ContentType.objects.get_for_model(root.reporter_type.model_class())
+            if content_type:
+                model_object = content_type.get_object_for_this_type(pk=root.reporter_id)
+                if model_object:
+                    if root.reporter_type.name == 'individual':
+                        return model_object.dob
+                    elif root.reporter_type.name == 'beneficiary':
+                        return model_object.individual.dob
+                    elif root.reporter_type.name == 'user':
+                        return None
+        return None
 
     class Meta:
         model = Ticket
@@ -88,6 +141,10 @@ class CommentGQLType(DjangoObjectType):
     commenter_type = graphene.Int()
     commenter_type_name = graphene.String()
 
+    commenter_first_name = graphene.String()
+    commenter_last_name = graphene.String()
+    commenter_dob = graphene.String()
+
     @staticmethod
     def resolve_commenter_type(root, info):
         check_comment_perms(info)
@@ -102,6 +159,54 @@ class CommentGQLType(DjangoObjectType):
     def resolve_commenter(root, info):
         check_comment_perms(info)
         return model_obj_to_json(root.commenter) if root.commenter else None
+
+    @staticmethod
+    def resolve_commenter_first_name(root, info):
+        check_comment_perms(info)
+        if root.commenter_type:
+            content_type = ContentType.objects.get_for_model(root.commenter_type.model_class())
+            if content_type:
+                model_object = content_type.get_object_for_this_type(pk=root.commenter_id)
+                if model_object:
+                    if root.commenter_type.name == 'individual':
+                        return model_object.first_name
+                    elif root.commenter_type.name == 'beneficiary':
+                        return model_object.individual.first_name
+                    elif root.commenter_type.name == 'user':
+                        return None
+        return None
+
+    @staticmethod
+    def resolve_commenter_last_name(root, info):
+        check_comment_perms(info)
+        if root.commenter_type:
+            content_type = ContentType.objects.get_for_model(root.commenter_type.model_class())
+            if content_type:
+                model_object = content_type.get_object_for_this_type(pk=root.commenter_id)
+                if model_object:
+                    if root.commenter_type.name == 'individual':
+                        return model_object.last_name
+                    elif root.commenter_type.name == 'beneficiary':
+                        return model_object.individual.last_name
+                    elif root.commenter_type.name == 'user':
+                        return None
+        return None
+
+    @staticmethod
+    def resolve_commenter_dob(root, info):
+        check_comment_perms(info)
+        if root.commenter_type:
+            content_type = ContentType.objects.get_for_model(root.commenter_type.model_class())
+            if content_type:
+                model_object = content_type.get_object_for_this_type(pk=root.commenter_id)
+                if model_object:
+                    if root.commenter_type.name == 'individual':
+                        return model_object.dob
+                    elif root.commenter_type.name == 'beneficiary':
+                        return model_object.individual.dob
+                    elif root.commenter_type.name == 'user':
+                        return None
+        return None
 
     class Meta:
         model = Comment
