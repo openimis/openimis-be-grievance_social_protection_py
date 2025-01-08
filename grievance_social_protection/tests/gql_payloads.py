@@ -34,3 +34,54 @@ mutation updateTicket {
   }
 }
 """
+
+
+gql_mutation_create_comment = """
+mutation createComment {
+  createComment(input: {
+    comment: "%s",
+    ticketId: "%s",
+    commenterId: "%s",
+    commenterType: "%s",
+    clientMutationId: "%s"
+  }) {
+    clientMutationId
+  }
+}
+"""
+
+
+gql_mutation_create_comment_anonymous_user = """
+mutation createComment {
+  createComment(input: {
+    comment: "%s",
+    ticketId: "%s",
+    clientMutationId: "%s"
+  }) {
+    clientMutationId
+  }
+}
+"""
+
+
+gql_mutation_resolve_ticket_by_comment = """
+mutation resolveGrievanceByComment {
+  resolveGrievanceByComment(input: {
+    id: "%s",
+    clientMutationId: "%s"
+  }) {
+    clientMutationId
+  }
+}
+"""
+
+gql_mutation_reopen_ticket = """
+mutation reopenTicket {
+  reopenTicket(input: {
+    id: "%s",
+    clientMutationId: "%s"
+  }) {
+    clientMutationId
+  }
+}
+"""

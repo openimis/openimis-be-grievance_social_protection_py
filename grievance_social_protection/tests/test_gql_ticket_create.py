@@ -14,7 +14,6 @@ class GQLTicketCreateTestCase(TestCase):
             self.user = user
 
     user = None
-    eu = None
 
     category = None
     title = None
