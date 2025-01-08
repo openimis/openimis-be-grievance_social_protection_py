@@ -1,3 +1,5 @@
+import re
+
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 from django.contrib.contenttypes.models import ContentType
@@ -12,19 +14,29 @@ class TicketValidation(BaseModelValidation):
 
     @classmethod
     def validate_create(cls, user, **data):
-        errors = [
-            *validate_ticket_unique_code(data),
-        ]
+        errors = []
+
+        unique_code_errors = validate_ticket_unique_code(data)
+        for error in unique_code_errors:
+            errors.append(ValidationError(error, code='unique_code_error'))
+
         if errors:
             raise ValidationError(errors)
 
+        super().validate_create(user, **data)
+
     @classmethod
     def validate_update(cls, user, **data):
-        errors = [
-            *validate_ticket_unique_code(data),
-        ]
+        errors = []
+
+        unique_code_errors = validate_ticket_unique_code(data)
+        for error in unique_code_errors:
+            errors.append(ValidationError(error, code='unique_code_error'))
+
         if errors:
             raise ValidationError(errors)
+
+        super().validate_update(user, **data)
 
 
 class CommentValidation(ObjectExistsValidationMixin):
@@ -51,6 +63,31 @@ def validate_ticket_exists(data):
     if not Ticket.objects.filter(id=ticket_id).exists():
         return [{"message": _("validations.CommentValidation.validate_ticket_exists") % {"ticket_id": ticket_id}}]
     return []
+
+
+def validate_resolution(data):
+    """
+    Validates that `value` is in the format '{days},{hours}'
+    where days are in the range <0, 99) and hours are in the range <0, 24).
+    """
+    resolution = data.get('resolution')
+    if not resolution:
+        return None
+
+    pattern = r"^(?P<days>[0-9]{1,2}),(?P<hours>[0-9]{1,2})$"
+    match = re.match(pattern, resolution)
+    if not match:
+        return {"message": _("validations.TicketValidation.validate_resolution.invalid_format")}
+    else:
+        days = int(match.group("days"))
+        hours = int(match.group("hours"))
+
+        if not (0 <= days < 99):
+            return {"message": _("validations.TicketValidation.validate_resolution.invalid_day_value")}
+        if not (0 <= hours < 24):
+            return {"message": _("validations.TicketValidation.validate_resolution.invalid_hour_value")}
+
+    return None
 
 
 def validate_commenter_exists(data):

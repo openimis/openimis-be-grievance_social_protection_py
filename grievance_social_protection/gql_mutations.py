@@ -40,6 +40,7 @@ class CreateTicketInputType(OpenIMISMutation.Input):
 class UpdateTicketInputType(CreateTicketInputType):
     id = graphene.UUID(required=True)
 
+
 class ResolveGrievanceByCommentInputType(OpenIMISMutation.Input):
     id = graphene.UUID(required=True)
 
@@ -106,7 +107,6 @@ class UpdateTicketMutation(BaseHistoryModelUpdateMutationMixin, BaseMutation):
             ticket_id = response['data']['id']
             ticket = Ticket.objects.get(id=ticket_id)
             TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, ticket=ticket)
-
         if not response['success']:
             return response
         return None

@@ -1,4 +1,5 @@
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 from django.db.models import Max
 from django.db import transaction
 
@@ -7,7 +8,11 @@ from core.signals import register_service_signal
 from core.services.utils import check_authentication as check_authentication, output_exception, \
     model_representation, output_result_success
 from grievance_social_protection.models import Ticket, Comment
-from grievance_social_protection.validations import TicketValidation, CommentValidation
+from grievance_social_protection.validations import (
+    TicketValidation,
+    CommentValidation,
+    validate_resolution
+)
 
 
 class TicketService(BaseService):
@@ -20,11 +25,17 @@ class TicketService(BaseService):
     def create(self, obj_data):
         self._get_content_type(obj_data)
         self._generate_code(obj_data)
+        resolution_error = validate_resolution(obj_data)
+        if resolution_error:
+            raise ValidationError(resolution_error)
         return super().create(obj_data)
 
     @register_service_signal('ticket_service.update')
     def update(self, obj_data):
         self._get_content_type(obj_data)
+        resolution_error = validate_resolution(obj_data)
+        if resolution_error:
+            raise ValidationError(resolution_error)
         return super().update(obj_data)
 
     @register_service_signal('ticket_service.delete')
