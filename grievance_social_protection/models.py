@@ -8,6 +8,7 @@ from graphql import ResolveInfo
 import core
 from core import models as core_models
 from core.models import HistoryBusinessModel, User, HistoryModel
+from .access_control import GrievanceAccessControl
 
 
 def check_if_user_or_individual(generic_field):
@@ -61,7 +62,12 @@ class Ticket(HistoryBusinessModel):
     def filter_queryset(cls, queryset=None):
         if queryset is None:
             queryset = cls.objects.all()
-        queryset = queryset.filter(*core.filter_validity())
+        # Filter by validity dates using the actual field names
+        from core.utils import TimeUtils
+        queryset = queryset.filter(
+            models.Q(date_valid_from__lte=TimeUtils.now()) | models.Q(date_valid_from__isnull=True),
+            models.Q(date_valid_to__gte=TimeUtils.now()) | models.Q(date_valid_to__isnull=True),
+        )
         return queryset
 
     @classmethod
@@ -72,7 +78,8 @@ class Ticket(HistoryBusinessModel):
         if settings.ROW_SECURITY and user.is_anonymous:
             return queryset.filter(id=None)
         if settings.ROW_SECURITY:
-            pass
+            # Apply category and flag permission filtering
+            queryset = GrievanceAccessControl.filter_ticket_queryset(queryset, user)
         return queryset
 
 
@@ -108,6 +115,32 @@ class Comment(HistoryModel):
 
             if existing_resolved_comments.exists():
                 raise ValueError("Another comment for this ticket is already marked as resolved.")
+
+    @classmethod
+    def filter_queryset(cls, queryset=None):
+        if queryset is None:
+            queryset = cls.objects.all()
+        queryset = queryset.filter(is_deleted=False)
+        return queryset
+
+    @classmethod
+    def get_queryset(cls, queryset, user):
+        queryset = cls.filter_queryset(queryset)
+        # GraphQL calls with an info object while Rest calls with the user itself
+        if isinstance(user, ResolveInfo):
+            user = user.context.user
+        if settings.ROW_SECURITY and user.is_anonymous:
+            return queryset.filter(id=None)
+        if settings.ROW_SECURITY:
+            # Filter out comments for tickets the user cannot see
+            # Get the tickets queryset filtered by user permissions
+            allowed_tickets = Ticket.filter_queryset()
+            allowed_tickets = GrievanceAccessControl.filter_ticket_queryset(allowed_tickets, user)
+            allowed_ticket_ids = allowed_tickets.values_list('id', flat=True)
+            
+            # Only show comments for tickets the user can access
+            queryset = queryset.filter(ticket_id__in=allowed_ticket_ids)
+        return queryset
 
 
 # LEFT IF NEEDED IN THE FUTURE

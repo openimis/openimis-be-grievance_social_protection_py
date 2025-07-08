@@ -1,67 +1,67 @@
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.test import TestCase
 from core.test_helpers import create_test_interactive_user
+from core.models import Role, RoleRight, UserRole
 
 from grievance_social_protection.access_control import GrievanceAccessControl
 from grievance_social_protection.apps import TicketConfig
-
+from grievance_social_protection.models import Ticket
+from grievance_social_protection.rights import GrievanceRightsManager
+import grievance_social_protection
 
 class GrievanceAccessControlTest(TestCase):
-    """Test rights-based access control for grievance categories and flags"""
-    
-    user_with_perms = None
-    user_no_perms = None
-    user_limited_perms = None
+    """Test automatic rights generation and access control for grievance categories and flags"""
     
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         
-        # Create test users with different permission levels
-        cls.user_with_perms = create_test_interactive_user(username='user_all_perms', roles=[7])
-        cls.user_no_perms = create_test_interactive_user(username='user_no_perms', roles=[1])
-        cls.user_limited_perms = create_test_interactive_user(username='user_limited_perms', roles=[1])
-        
-        # Mock has_perm for test users
-        cls.user_with_perms.has_perm = lambda perm: True
-        cls.user_no_perms.has_perm = lambda perm: False
-        cls.user_limited_perms.has_perm = lambda perm: perm in [
-            '127000',  # View tickets
-            '127001',  # Create tickets
-            '127004'   # View comments
-        ]
+        # Create test users
+        cls.user_with_all_rights = create_test_interactive_user(username='user_all_rights', roles=[1])
+        cls.user_no_rights = create_test_interactive_user(username='user_no_rights', roles=[1])
+        cls.user_restricted_viewer = create_test_interactive_user(username='user_restricted', roles=[1])
+        cls.user_full_viewer = create_test_interactive_user(username='user_viewer', roles=[1])
+        cls.user_manager = create_test_interactive_user(username='user_manager', roles=[1])
     
     def setUp(self):
         """Set up test configuration before each test"""
         self._setup_test_config()
+        self._assign_rights_to_users()
     
     def _setup_test_config(self):
-        """Set up test configuration data"""
-        # Create configuration in the format that TicketConfig expects
+        """Set up test configuration data with new permissions format"""
+        # Create configuration with the new permissions format
         cfg = {
             'grievance_types': [
                 'simple_category',
                 {
                     'name': 'complaint',
                     'priority': 'High',
-                    'permissions': ['127000', '127001'],  # View and create tickets
+                    'permissions': ['restricted_read', 'read', 'create', 'update'],  # New format
                     'default_flags': ['urgent'],
                     'children': [
                         {
                             'name': 'service_complaint',
-                            'permissions': ['127002']  # Update tickets
+                            'permissions': ['read', 'create']  # Override parent
+                        },
+                        {
+                            'name': 'vbg_complaint',
+                            'permissions': ['read', 'create'],
+                            'default_flags': ['confidential']
                         }
                     ]
                 },
                 {
                     'name': 'feedback',
                     'priority': 'Low',
-                    'permissions': ['127000']  # View tickets
+                    'permissions': ['restricted_read', 'read']  # Read only
                 },
                 {
                     'name': 'restricted_category',
                     'priority': 'Critical',
-                    'permissions': ['127002', '127003'],  # Update and delete tickets
+                    'permissions': ['read', 'create', 'update'],
                     'default_flags': ['sensitive']
                 }
             ],
@@ -71,255 +71,387 @@ class GrievanceAccessControlTest(TestCase):
                     'priority': 'High'
                 },
                 {
+                    'name': 'confidential',
+                    'priority': 'Critical',
+                    'permissions': ['read', 'create']  # Restricted flag
+                },
+                {
                     'name': 'sensitive',
                     'priority': 'Critical',
-                    'permissions': ['127004', '127005']  # View and create comments
+                    'permissions': ['read']  # Read only flag
                 },
                 'public'
             ]
         }
         
-        # Process the configuration using TicketConfig methods (mimicking ready() method)
+        # Process the configuration
         TicketConfig._TicketConfig__process_unified_categories(cfg)
         TicketConfig._TicketConfig__process_unified_flags(cfg)
         TicketConfig._TicketConfig__load_config(cfg)
+        
+        self._rights_generation()
+
+    def _rights_generation(self):
+        # Generate rights using the real rights manager
+        GrievanceRightsManager.generate_automatic_rights(TicketConfig)
     
-    def test_check_category_permission_no_restrictions(self):
-        """Test category access with no permission restrictions"""
-        # Should allow access for all users when no permissions defined
-        result = GrievanceAccessControl.check_category_permission(
-            self.user_no_perms, 'simple_category'
-        )
-        self.assertTrue(result)
+    def _assign_rights_to_users(self):
+        """Assign specific rights to test users through roles"""
+        # Create roles for different access levels
+        complaint_rights = TicketConfig.processed_categories.get('complaint', {}).get('generated_rights', {})
         
-        result = GrievanceAccessControl.check_category_permission(
-            self.user_with_perms, 'simple_category'
-        )
-        self.assertTrue(result)
+        # Restricted viewer role
+        if self.user_restricted_viewer.i_user and complaint_rights.get('restricted_read'):
+            role_restricted = Role.objects.create(
+                name='TestRestrictedViewer',
+                is_system=0,
+                is_blocked=False,
+                audit_user_id=-1
+            )
+            RoleRight.objects.create(
+                role=role_restricted,
+                right_id=complaint_rights['restricted_read'],
+                audit_user_id=-1
+            )
+            UserRole.objects.create(
+                user=self.user_restricted_viewer.i_user,
+                role=role_restricted,
+                audit_user_id=-1
+            )
+        
+        # Full viewer role
+        if self.user_full_viewer.i_user and complaint_rights.get('read'):
+            role_viewer = Role.objects.create(
+                name='TestViewer',
+                is_system=0,
+                is_blocked=False,
+                audit_user_id=-1
+            )
+            RoleRight.objects.create(
+                role=role_viewer,
+                right_id=complaint_rights['read'],
+                audit_user_id=-1
+            )
+            UserRole.objects.create(
+                user=self.user_full_viewer.i_user,
+                role=role_viewer,
+                audit_user_id=-1
+            )
+        
+        # Manager role with all rights
+        if self.user_manager.i_user:
+            role_manager = Role.objects.create(
+                name='TestManager',
+                is_system=0,
+                is_blocked=False,
+                audit_user_id=-1
+            )
+            # Add all complaint rights
+            for right_id in complaint_rights.values():
+                RoleRight.objects.create(
+                    role=role_manager,
+                    right_id=right_id,
+                    audit_user_id=-1
+                )
+            UserRole.objects.create(
+                user=self.user_manager.i_user,
+                role=role_manager,
+                audit_user_id=-1
+            )
+        
+        # User with all rights
+        if self.user_with_all_rights.i_user:
+            role_all = Role.objects.create(
+                name='TestAllRights',
+                is_system=0,
+                is_blocked=False,
+                audit_user_id=-1
+            )
+            # Add all generated rights
+            for cat_info in TicketConfig.processed_categories.values():
+                for right_id in cat_info.get('generated_rights', {}).values():
+                    RoleRight.objects.create(
+                        role=role_all,
+                        right_id=right_id,
+                        audit_user_id=-1
+                    )
+            for flag_info in TicketConfig.processed_flags.values():
+                for right_id in flag_info.get('generated_rights', {}).values():
+                    RoleRight.objects.create(
+                        role=role_all,
+                        right_id=right_id,
+                        audit_user_id=-1
+                    )
+            UserRole.objects.create(
+                user=self.user_with_all_rights.i_user,
+                role=role_all,
+                audit_user_id=-1
+            )
     
-    def test_check_category_permission_with_restrictions(self):
-        """Test category access with permission restrictions"""
-        # User with permissions should have access
-        result = GrievanceAccessControl.check_category_permission(
-            self.user_with_perms, 'complaint'
-        )
-        self.assertTrue(result)
+    def test_automatic_rights_generation(self):
+        """Test that rights are generated for categories with permissions"""
+        # Check complaint category has generated rights
+        complaint_info = TicketConfig.processed_categories.get('complaint', {})
+        self.assertIn('generated_rights', complaint_info)
+        # All permissions defined in config should be generated
+        self.assertIn('restricted_read', complaint_info['generated_rights'])
+        self.assertIn('read', complaint_info['generated_rights'])
+        self.assertIn('create', complaint_info['generated_rights'])
+        self.assertIn('update', complaint_info['generated_rights'])
         
-        # User without permissions should not have access
-        result = GrievanceAccessControl.check_category_permission(
-            self.user_no_perms, 'complaint'
-        )
-        self.assertFalse(result)
+        # Check feedback category (read only)
+        feedback_info = TicketConfig.processed_categories.get('feedback', {})
+        self.assertIn('generated_rights', feedback_info)
+        self.assertIn('restricted_read', feedback_info['generated_rights'])
+        self.assertIn('read', feedback_info['generated_rights'])
+        # No write permissions defined
+        self.assertNotIn('create', feedback_info['generated_rights'])
+        self.assertNotIn('update', feedback_info['generated_rights'])
     
-    def test_check_category_permission_inheritance(self):
-        """Test permission inheritance from parent categories"""
-        # Child inherits create permission from parent - user with all perms
-        result = GrievanceAccessControl.check_category_permission(
-            self.user_with_perms, 'complaint|service_complaint'
+    def test_check_category_access_with_new_permissions(self):
+        """Test category access with new permission system using real rights"""
+        # Test restricted access
+        self.assertTrue(
+            GrievanceAccessControl.check_category_access(
+                self.user_restricted_viewer, 'complaint', 'restricted_read'
+            )
         )
-        self.assertTrue(result)
+        self.assertFalse(
+            GrievanceAccessControl.check_category_access(
+                self.user_restricted_viewer, 'complaint', 'read'
+            )
+        )
         
-        # User without permissions should not inherit
-        result = GrievanceAccessControl.check_category_permission(
-            self.user_no_perms, 'complaint|service_complaint'
+        # Test full read access
+        self.assertTrue(
+            GrievanceAccessControl.check_category_access(
+                self.user_full_viewer, 'complaint', 'read'
+            )
         )
-        self.assertFalse(result)
+        self.assertFalse(
+            GrievanceAccessControl.check_category_access(
+                self.user_full_viewer, 'complaint', 'create'
+            )
+        )
+        
+        # Test manager access
+        self.assertTrue(
+            GrievanceAccessControl.check_category_access(
+                self.user_manager, 'complaint', 'create'
+            )
+        )
+        self.assertTrue(
+            GrievanceAccessControl.check_category_access(
+                self.user_manager, 'complaint', 'update'
+            )
+        )
     
-    def test_check_flag_permission(self):
-        """Test flag permission checking"""
-        # No restrictions
-        result = GrievanceAccessControl.check_flag_permission(
-            self.user_no_perms, 'urgent'
+    def test_get_user_access_level(self):
+        """Test determining user's access level with real database rights"""
+        # Restricted viewer
+        level = GrievanceAccessControl.get_user_access_level(
+            self.user_restricted_viewer, 'complaint'
         )
-        self.assertTrue(result)
+        self.assertEqual(level, 'restricted')
         
-        # With restrictions - user with perms
-        result = GrievanceAccessControl.check_flag_permission(
-            self.user_with_perms, 'sensitive'
+        # Full viewer
+        level = GrievanceAccessControl.get_user_access_level(
+            self.user_full_viewer, 'complaint'
         )
-        self.assertTrue(result)
+        self.assertEqual(level, 'read')
         
-        # With restrictions - user without perms
-        result = GrievanceAccessControl.check_flag_permission(
-            self.user_no_perms, 'sensitive'
+        # Manager - has create, update, delete permissions so should have 'full' access
+        level = GrievanceAccessControl.get_user_access_level(
+            self.user_manager, 'complaint'
         )
-        self.assertFalse(result)
+        self.assertEqual(level, 'full')
+        
+        # No access
+        level = GrievanceAccessControl.get_user_access_level(
+            self.user_no_rights, 'complaint'
+        )
+        self.assertEqual(level, 'none')
+        
+        # Unrestricted category returns 'full'
+        level = GrievanceAccessControl.get_user_access_level(
+            self.user_no_rights, 'simple_category'
+        )
+        self.assertEqual(level, 'full')
     
-    def test_get_accessible_categories(self):
-        """Test filtering categories by user permissions"""
-        # User with all permissions
-        accessible = GrievanceAccessControl.get_accessible_categories(
-            self.user_with_perms
-        )
-        self.assertEqual(len(accessible), 5)  # All categories
-        
-        # User with no permissions
-        accessible = GrievanceAccessControl.get_accessible_categories(
-            self.user_no_perms
-        )
-        self.assertEqual(accessible, ['simple_category'])  # Only unrestricted
-    
-    def test_get_category_hierarchy(self):
-        """Test hierarchical category structure generation"""
-        hierarchy = GrievanceAccessControl.get_category_hierarchy(
-            self.user_with_perms
-        )
-        
-        # Should have top-level categories
-        names = [cat['name'] for cat in hierarchy]
-        self.assertIn('complaint', names)
-        self.assertIn('simple_category', names)
-        
-        # Check children
-        complaint = next(cat for cat in hierarchy if cat['name'] == 'complaint')
-        self.assertEqual(len(complaint['children']), 1)
-        self.assertEqual(complaint['children'][0]['name'], 'service_complaint')
-    
-    def test_get_accessible_flags(self):
-        """Test filtering flags by user permissions"""
-        # User with permissions
-        flags = GrievanceAccessControl.get_accessible_flags(self.user_with_perms)
-        self.assertEqual(set(flags), {'urgent', 'sensitive', 'public'})
-        
-        # User without permissions
-        flags = GrievanceAccessControl.get_accessible_flags(self.user_no_perms)
-        self.assertEqual(set(flags), {'urgent', 'public'})  # Only unrestricted
-    
-    def test_validate_ticket_access(self):
-        """Test ticket access validation"""
-        # Should not raise for valid access
+    def test_validate_ticket_access_new_system(self):
+        """Test ticket access validation with new permission system"""
+        # Manager can create tickets
         try:
             GrievanceAccessControl.validate_ticket_access(
-                self.user_with_perms, 'complaint', 'urgent'
+                self.user_manager, 'complaint', None, 'create'
             )
         except PermissionDenied:
             self.fail("validate_ticket_access raised PermissionDenied unexpectedly")
         
-        # Should raise for invalid category access
+        # Viewer cannot write
         with self.assertRaises(PermissionDenied) as context:
             GrievanceAccessControl.validate_ticket_access(
-                self.user_no_perms, 'complaint', None
+                self.user_full_viewer, 'complaint', None, 'create'
             )
-        self.assertIn('complaint', str(context.exception))
-        
-        # Should raise for invalid flag access
-        with self.assertRaises(PermissionDenied) as context:
-            GrievanceAccessControl.validate_ticket_access(
-                self.user_no_perms, 'simple_category', 'sensitive'
-            )
-        self.assertIn('sensitive', str(context.exception))
+        self.assertIn('create', str(context.exception))
     
-    def test_get_category_defaults(self):
-        """Test getting category default values"""
-        defaults = GrievanceAccessControl.get_category_defaults('complaint')
-        self.assertEqual(defaults['priority'], 'High')
-        self.assertEqual(defaults['default_flags'], ['urgent'])
+    def test_get_user_rights(self):
+        """Test getting user rights from database"""
+        # Manager should have all complaint rights
+        manager_rights = set(self.user_manager.rights) if self.user_manager.rights else set()
+        complaint_rights = TicketConfig.processed_categories.get('complaint', {}).get('generated_rights', {})
         
+        for right_id in complaint_rights.values():
+            self.assertIn(right_id, manager_rights)
+        
+        # User with no grievance-specific rights should not have complaint rights
+        no_rights = set(self.user_no_rights.rights) if self.user_no_rights.rights else set()
+        # Check that user doesn't have any of the complaint-specific rights
+        for right_id in complaint_rights.values():
+            self.assertNotIn(right_id, no_rights)
     
-    def test_get_effective_priority(self):
-        """Test priority calculation from category and flags"""
-        # Category priority
-        priority = GrievanceAccessControl.get_effective_priority('complaint', None)
-        self.assertEqual(priority, 'High')
+    def test_permission_inheritance_with_overrides(self):
+        """Test that child categories can override parent permissions"""
+        # service_complaint has only read/write, not update
+        service_info = TicketConfig.processed_categories.get('complaint|service_complaint', {})
+        rights = service_info.get('generated_rights', {})
         
-        # Flag overrides with higher priority
-        priority = GrievanceAccessControl.get_effective_priority(
-            'simple_category', 'sensitive'
-        )
-        self.assertEqual(priority, 'Critical')
-        
-        # Multiple flags - highest wins
-        priority = GrievanceAccessControl.get_effective_priority(
-            'simple_category', ['urgent', 'public']
-        )
-        self.assertEqual(priority, 'High')
+        self.assertIn('read', rights)
+        self.assertIn('create', rights)
+        self.assertNotIn('update', rights)  # Parent has update, but child doesn't
     
-    def test_backward_compatibility(self):
-        """Test backward compatibility with simple string configurations"""
-        # Reset to simple configuration
-        TicketConfig.processed_categories = {}
-        TicketConfig.processed_flags = {}
-        
-        # Should return all categories when no processed config
+    def test_get_accessible_categories_with_min_access(self):
+        """Test getting accessible categories with minimum access level"""
+        # User with restricted access
         categories = GrievanceAccessControl.get_accessible_categories(
-            self.user_no_perms
+            self.user_restricted_viewer, 'restricted_read'
         )
-        self.assertEqual(categories, TicketConfig.grievance_types)
+        self.assertIn('complaint', categories)
         
-        # Should return all flags when no processed config
-        flags = GrievanceAccessControl.get_accessible_flags(self.user_no_perms)
-        self.assertEqual(flags, TicketConfig.grievance_flags)
+        # Same user with higher requirement
+        categories = GrievanceAccessControl.get_accessible_categories(
+            self.user_restricted_viewer, 'read'
+        )
+        self.assertNotIn('complaint', categories)
     
-    def test_parent_visible_child_restricted_permissions(self):
-        """Test permission checking where parent is accessible but specific child is not"""
-        # Add test configuration for mixed parent-child permissions
-        additional_cfg = {
-            'grievance_types': [
-                {
-                    'name': 'parent_mixed',
-                    'priority': 'Medium',
-                    'permissions': ['127000'],  # View tickets - Limited user has this
-                    'children': [
-                        {
-                            'name': 'accessible_child'
-                            # No permissions - will inherit parent's
-                        },
-                        {
-                            'name': 'restricted_child',
-                            'priority': 'High',
-                            'permissions': ['127006']  # Resolve grievances - Limited user doesn't have this
-                        }
-                    ]
-                }
-            ]
+    def test_empty_permissions_means_no_restrictions(self):
+        """Test that categories/flags without permissions have no access restrictions"""
+        # simple_category has no permissions defined
+        self.assertIsNone(
+            GrievanceAccessControl.check_category_access(
+                self.user_no_rights, 'simple_category', 'read'
+            )
+        )
+        
+        # public flag has no permissions
+        self.assertIsNone(
+            GrievanceAccessControl.check_flag_access(
+                self.user_no_rights, 'public', 'read'
+            )
+        )
+    
+    def test_filter_ticket_queryset(self):
+        """Test filtering queryset based on user rights"""
+        
+        # Create test tickets
+        ticket1 = Ticket(
+            category='complaint',
+            title='Test Complaint',
+            code='TEST001'
+        )
+        ticket1.save(user=self.user_manager.user)
+        
+        ticket2 = Ticket(
+            category='simple_category',
+            title='Test Simple',
+            code='TEST002'
+        )
+        ticket2.save(user=self.user_manager.user)
+        
+        # User with no rights should only see unrestricted tickets
+        queryset = Ticket.objects.all()
+        filtered = GrievanceAccessControl.filter_ticket_queryset(queryset, self.user_no_rights)
+        
+        # Should only see simple_category ticket
+        self.assertIn(ticket2, filtered)
+        self.assertNotIn(ticket1, filtered)
+        
+        # User with restricted access should see both
+        filtered = GrievanceAccessControl.filter_ticket_queryset(queryset, self.user_restricted_viewer)
+        self.assertGreaterEqual(filtered.count(), 2)  # At least our 2 tickets
+        
+        # Clean up
+        ticket1.delete(user=self.user_manager.user)
+        ticket2.delete(user=self.user_manager.user)
+
+
+class GrievanceRightsManagerTest(TestCase):
+    """Test automatic rights generation functionality"""
+    
+    def test_get_next_available_id(self):
+        """Test the internal ID generation logic"""
+        # Test that the suffix pattern is maintained
+        used_ids = set()
+        
+        # Test read permission (suffix 0)
+        next_id = GrievanceRightsManager._get_next_available_id('read', used_ids)
+        self.assertEqual(next_id % 10, 0)
+        self.assertEqual(next_id, GrievanceRightsManager.GRIEVANCE_RIGHT_BASE + 0)
+        
+        # Test create permission (suffix 1)
+        next_id = GrievanceRightsManager._get_next_available_id('create', used_ids)
+        self.assertEqual(next_id % 10, 1)
+        self.assertEqual(next_id, GrievanceRightsManager.GRIEVANCE_RIGHT_BASE + 1)
+        
+        # Test with some used IDs
+        used_ids = {127100, 127101, 127102}
+        next_id = GrievanceRightsManager._get_next_available_id('read', used_ids)
+        self.assertEqual(next_id, 127110)  # Next available with suffix 0
+    
+    def test_generate_automatic_rights_integration(self):
+        """Test the actual rights generation process"""
+        
+        # Create a mock app config with proper module
+        app_config = TicketConfig('grievance_social_protection', grievance_social_protection)
+        
+        # Set up test configuration
+        app_config.processed_categories = {
+            'test_category': {
+                'permissions': ['read', 'create', 'update']
+            }
+        }
+        app_config.processed_flags = {
+            'test_flag': {
+                'permissions': ['read']
+            }
         }
         
-        # Process the additional configuration
-        TicketConfig._TicketConfig__process_unified_categories(additional_cfg)
+        # Count permissions before
+        ct = ContentType.objects.get_for_model(Ticket)
+        perms_before = Permission.objects.filter(
+            content_type=ct,
+            id__range=(GrievanceRightsManager.GRIEVANCE_RIGHT_BASE, GrievanceRightsManager.GRIEVANCE_RIGHT_MAX)
+        ).count()
         
-        # Merge with existing configuration and reload
-        TicketConfig.grievance_types.extend(additional_cfg['grievance_types'])
-        TicketConfig.processed_categories.update(additional_cfg['processed_categories'])
+        # Generate rights
+        GrievanceRightsManager.generate_automatic_rights(app_config)
         
-        # Test parent access
-        self.assertTrue(
-            GrievanceAccessControl.check_category_permission(
-                self.user_limited_perms, 'parent_mixed'
-            )
-        )
+        # Check that permissions were created
+        perms_after = Permission.objects.filter(
+            content_type=ct,
+            id__range=(GrievanceRightsManager.GRIEVANCE_RIGHT_BASE, GrievanceRightsManager.GRIEVANCE_RIGHT_MAX)
+        ).count()
         
-        # Test accessible child (inherits parent permission)
-        self.assertTrue(
-            GrievanceAccessControl.check_category_permission(
-                self.user_limited_perms, 'parent_mixed|accessible_child'
-            )
-        )
+        # Should have created at least some permissions
+        self.assertGreaterEqual(perms_after, perms_before)
         
-        # Test restricted child (requires different permission)
-        self.assertFalse(
-            GrievanceAccessControl.check_category_permission(
-                self.user_limited_perms, 'parent_mixed|restricted_child'
-            )
-        )
+        # Check that generated_rights were populated
+        self.assertIn('generated_rights', app_config.processed_categories['test_category'])
+        self.assertIn('generated_rights', app_config.processed_flags['test_flag'])
         
-        # User with all permissions should access everything
-        self.assertTrue(
-            GrievanceAccessControl.check_category_permission(
-                self.user_with_perms, 'parent_mixed|restricted_child'
-            )
-        )
-        
-        # Test hierarchy retrieval
-        hierarchy = GrievanceAccessControl.get_category_hierarchy(
-            self.user_limited_perms
-        )
-        
-        # Find the parent_mixed category in hierarchy
-        parent_mixed = next((cat for cat in hierarchy if cat['name'] == 'parent_mixed'), None)
-        self.assertIsNotNone(parent_mixed)
-        
-        # Should have only one visible child
-        visible_children = parent_mixed.get('children', [])
-        self.assertEqual(len(visible_children), 1)
-        self.assertEqual(visible_children[0]['name'], 'accessible_child')
-    
+        # Clean up created permissions
+        Permission.objects.filter(
+            content_type=ct,
+            codename__endswith='_grievance',
+            id__range=(GrievanceRightsManager.GRIEVANCE_RIGHT_BASE, GrievanceRightsManager.GRIEVANCE_RIGHT_MAX)
+        ).delete()

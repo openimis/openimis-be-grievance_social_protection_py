@@ -33,7 +33,7 @@ class TicketServicePermissionsTest(TestCase):
                 {
                     'name': 'restricted_category',
                     'priority': 'High',
-                    'permissions': ['127001', '127002'],
+                    'permissions': ['read', 'create'],
                     'default_flags': ['urgent']
                 }
             ],
@@ -42,7 +42,7 @@ class TicketServicePermissionsTest(TestCase):
                 {
                     'name': 'sensitive',
                     'priority': 'Critical',
-                    'permissions': ['127004', '127005']
+                    'permissions': ['read', 'create']
                 },
                 {
                     'name': 'urgent',
@@ -56,20 +56,43 @@ class TicketServicePermissionsTest(TestCase):
         TicketConfig._TicketConfig__process_unified_categories(config)
         TicketConfig._TicketConfig__process_unified_flags(config)
         TicketConfig._TicketConfig__load_config(config)
+        
+        # Generate rights for the configuration
+        cls._generate_test_rights()
+    
+    @classmethod
+    def _generate_test_rights(cls):
+        """Use the actual GrievanceRightsManager to generate rights"""
+        from grievance_social_protection.rights import GrievanceRightsManager
+        
+        # Generate rights using the real rights manager
+        GrievanceRightsManager.generate_automatic_rights(TicketConfig)
     
     @classmethod
     def _create_test_users(cls):
         """Create test users with different permission levels"""
         # User with permissions for restricted category
         cls.user_with_perms = create_test_interactive_user(username='user_with_perms', roles=[1])
-        cls._add_permissions_to_user(cls.user_with_perms, ['127001', '127002'])
+        restricted_rights = TicketConfig.processed_categories.get('restricted_category', {}).get('generated_rights', {})
+        perms = []
+        if restricted_rights.get('read'):
+            perms.append(str(restricted_rights['read']))
+        if restricted_rights.get('create'):
+            perms.append(str(restricted_rights['create']))
+        cls._add_permissions_to_user(cls.user_with_perms, perms)
         
         # User without permissions
         cls.user_no_perms = create_test_interactive_user(username='user_no_perms', roles=[1])
         
         # User with flag permissions
         cls.user_flag_perms = create_test_interactive_user(username='user_flag_perms', roles=[1])
-        cls._add_permissions_to_user(cls.user_flag_perms, ['127004', '127005'])
+        sensitive_rights = TicketConfig.processed_flags.get('sensitive', {}).get('generated_rights', {})
+        flag_perms = []
+        if sensitive_rights.get('read'):
+            flag_perms.append(str(sensitive_rights['read']))
+        if sensitive_rights.get('create'):
+            flag_perms.append(str(sensitive_rights['create']))
+        cls._add_permissions_to_user(cls.user_flag_perms, flag_perms)
         
         # Anonymous-like user (no permissions)
         cls.user_anon = create_test_interactive_user(username='user_anon', roles=[1])
@@ -224,7 +247,13 @@ class TicketServicePermissionsTest(TestCase):
         service = TicketService(user)
         
         # Test with restricted category (user needs permissions)
-        self._add_permissions_to_user(user, ['127001', '127002'])
+        restricted_rights = TicketConfig.processed_categories.get('restricted_category', {}).get('generated_rights', {})
+        perms = []
+        if restricted_rights.get('read'):
+            perms.append(str(restricted_rights['read']))
+        if restricted_rights.get('create'):
+            perms.append(str(restricted_rights['create']))
+        self._add_permissions_to_user(user, perms)
         
         obj_data = {
             'category': 'restricted_category',
@@ -249,7 +278,7 @@ class TicketServicePermissionsTest(TestCase):
                 'open_category',
                 {
                     'name': 'parent_cat',
-                    'permissions': ['127003'],
+                    'permissions': ['read', 'create'],
                     'children': ['child1', 'child2']
                 }
             ],
@@ -261,6 +290,9 @@ class TicketServicePermissionsTest(TestCase):
         TicketConfig._TicketConfig__process_unified_categories(config)
         TicketConfig._TicketConfig__process_unified_flags(config)
         TicketConfig._TicketConfig__load_config(config)
+        
+        # Generate rights for the new configuration
+        self._generate_test_rights()
         
         # User without parent permission
         service = TicketService(self.user_no_perms)

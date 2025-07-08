@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from django.apps import AppConfig
 
@@ -61,6 +62,29 @@ class TicketConfig(AppConfig):
     processed_categories = {}
     processed_flags = {}
     unified_resolution_times = {}
+    generated_rights = {}  # Store dynamically generated rights
+    
+    @classmethod
+    def get_all_permissions(cls):
+        """
+        Get all permissions including dynamically generated ones.
+        This method can be used by external systems to get the complete permission list.
+        """
+        all_perms = {}
+        
+        # Start with static permissions from DEFAULT_CFG
+        for key, value in DEFAULT_CFG.items():
+            if key.endswith('_perms'):
+                all_perms[key] = value
+        
+        # Add dynamically generated permissions
+        for right_name, right_id in cls.generated_rights.items():
+            if right_name not in all_perms:
+                all_perms[right_name] = []
+            if right_id not in all_perms[right_name]:
+                all_perms[right_name].append(right_id)
+        
+        return all_perms
 
     def ready(self):
         from core.models import ModuleConfiguration
@@ -72,6 +96,10 @@ class TicketConfig(AppConfig):
         self.__validate_grievance_dict_fields(cfg, 'default_resolution')
         self.__validate_grievance_default_resolution_time(cfg)
         self.__load_config(cfg)
+        # Generate rights only if we're not in a migration
+        if 'migrate' not in sys.argv and 'makemigrations' not in sys.argv:
+            from .rights import GrievanceRightsManager
+            GrievanceRightsManager.generate_automatic_rights(self)
 
     @classmethod
     def __validate_grievance_dict_fields(cls, cfg, field_name):
@@ -189,7 +217,8 @@ class TicketConfig(AppConfig):
                     'default_flags': parent_info.get('default_flags', []) if parent_info else [],
                     'resolution_times': parent_info.get('resolution_times') if parent_info else None,
                     'parent': parent_name,
-                    'children': {}
+                    'children': {},
+                    'generated_rights': {}
                 }
                 flat_types.append(full_name)
                 return full_name
@@ -203,8 +232,41 @@ class TicketConfig(AppConfig):
                 
                 full_name = f"{parent_name}|{cat_name}" if parent_name else cat_name
                 
-                # Process permissions - list format only, inherit from parent if not specified
+                # Process permissions - handle both dict and list formats
                 permissions = item.get('permissions', parent_info.get('permissions', []) if parent_info else [])
+                # Convert dict format to list format if needed
+                if isinstance(permissions, dict):
+                    permissions = list(permissions.keys())
+                
+                # Process visible_fields with inheritance constraints
+                visible_fields = item.get('visible_fields', [])
+                if visible_fields:
+                    # If visible_fields is defined, ensure restricted_read and read permissions exist
+                    if 'restricted_read' not in permissions:
+                        permissions.append('restricted_read')
+                        logger.info(f"Auto-adding 'restricted_read' permission to category '{cat_name}' due to visible_fields")
+                    if 'read' not in permissions:
+                        permissions.append('read')
+                        logger.info(f"Auto-adding 'read' permission to category '{cat_name}' due to visible_fields")
+                    
+                    # Validate against parent's visible_fields
+                    if parent_info and parent_info.get('visible_fields'):
+                        parent_visible = set(parent_info['visible_fields'])
+                        child_visible = set(visible_fields)
+                        
+                        # Check if child tries to expose fields hidden by parent
+                        invalid_fields = child_visible - parent_visible
+                        if invalid_fields:
+                            logger.warning(
+                                f"Category '{cat_name}' cannot make fields {invalid_fields} visible - "
+                                f"not in parent's visible_fields. Removing these fields."
+                            )
+                            # Use intersection to ensure child is subset of parent
+                            visible_fields = list(child_visible & parent_visible)
+                            item['visible_fields'] = visible_fields
+                elif parent_info and parent_info.get('visible_fields'):
+                    # Inherit parent's visible_fields if not specified
+                    visible_fields = parent_info['visible_fields'].copy()
                 
                 # Inherit from parent if not specified
                 priority = item.get('priority', parent_info.get('priority', 'Medium') if parent_info else 'Medium')
@@ -221,7 +283,8 @@ class TicketConfig(AppConfig):
                     'default_flags': default_flags,
                     'resolution_times': resolution_times,
                     'parent': parent_name,
-                    'children': {}
+                    'children': {},
+                    'generated_rights': {}  # Will be populated by rights generation
                 }
                 
                 processed_categories[full_name] = category_info
@@ -263,7 +326,8 @@ class TicketConfig(AppConfig):
                 # Simple string format (backward compatible)
                 processed_flags[flag] = {
                     'priority': 'Medium',
-                    'permissions': []  # No restrictions - empty list
+                    'permissions': [],  # No restrictions - empty list
+                    'generated_rights': {}
                 }
                 flat_flags.append(flag)
                 
@@ -274,12 +338,16 @@ class TicketConfig(AppConfig):
                     logger.warning("Flag dict must have 'name' field")
                     continue
                 
-                # Process permissions - list format only
+                # Process permissions - handle both dict and list formats
                 permissions = flag.get('permissions', [])
+                # Convert dict format to list format if needed
+                if isinstance(permissions, dict):
+                    permissions = list(permissions.keys())
                 
                 processed_flags[flag_name] = {
                     'priority': flag.get('priority', 'Medium'),
-                    'permissions': permissions
+                    'permissions': permissions,
+                    'generated_rights': {}
                 }
                 flat_flags.append(flag_name)
         
@@ -297,3 +365,4 @@ class TicketConfig(AppConfig):
         for field in cfg:
             if hasattr(TicketConfig, field):
                 setattr(TicketConfig, field, cfg[field])
+    
