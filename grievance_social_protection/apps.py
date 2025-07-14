@@ -10,9 +10,11 @@ MODULE_NAME = "grievance_social_protection"
 DEFAULT_STRING = 'Default'
 # CRON timedelta: {days},{hours}
 DEFAULT_TIME_RESOLUTION = '5,0'
+DEFAULT_GRIEVANCE_TYPE = 'uncategorized'
 
 DEFAULT_CFG = {
     "default_validations_disabled": False,
+    "default_grievance_type": DEFAULT_GRIEVANCE_TYPE,
     "gql_query_tickets_perms": ["127000"],
     "gql_query_comments_perms": ["127004"],
     "gql_mutation_create_tickets_perms": ["127001"],
@@ -55,6 +57,7 @@ class TicketConfig(AppConfig):
     grievance_anonymized_fields = {}
     resolution_times = {}
     default_resolution = {}
+    default_grievance_type = DEFAULT_GRIEVANCE_TYPE
     attending_staff_role_ids = []
     default_attending_staff_role_ids = {}
     
@@ -205,6 +208,27 @@ class TicketConfig(AppConfig):
         categories = cfg.get('grievance_types', [])
         processed_categories = {}
         flat_types = []
+        
+        # Ensure default_grievance_type is in the categories list
+        default_grievance_type = cfg.get('default_grievance_type', DEFAULT_GRIEVANCE_TYPE)
+        if default_grievance_type:
+            # Check if default_grievance_type exists in categories
+            type_exists = False
+            for cat in categories:
+                if isinstance(cat, str) and cat == default_grievance_type:
+                    type_exists = True
+                    break
+                elif isinstance(cat, dict) and cat.get('name') == default_grievance_type:
+                    type_exists = True
+                    break
+            
+            # If not found, add it with default permissions
+            if not type_exists:
+                categories.insert(0, {
+                    'name': default_grievance_type,
+                    'permissions': ['read', 'update']
+                })
+                logger.info(f"Added default grievance type '{default_grievance_type}' with permissions ['read', 'update']")
         
         def process_category_item(item, parent_name=None, parent_info=None):
             """Process a single category item (string or dict)"""

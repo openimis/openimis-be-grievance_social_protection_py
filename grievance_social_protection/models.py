@@ -9,6 +9,7 @@ import core
 from core import models as core_models
 from core.models import HistoryBusinessModel, User, HistoryModel
 from .access_control import GrievanceAccessControl
+from .apps import TicketConfig
 
 
 def check_if_user_or_individual(generic_field):
@@ -56,6 +57,12 @@ class Ticket(HistoryBusinessModel):
 
     def __str__(self):
         return f"{self.title}"
+    
+    def save(self, *args, **kwargs):
+        # Set default category if empty
+        if not self.category:
+            self.category = TicketConfig.default_grievance_type
+        super().save(*args, **kwargs)
 
 
     @classmethod

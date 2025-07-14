@@ -31,7 +31,7 @@ class CreateTicketInputType(OpenIMISMutation.Input):
     status = graphene.Field(TicketStatusEnum, required=False)
     priority = graphene.String(required=False)
     due_date = graphene.Date(required=False)
-    category = graphene.String(required=True)
+    category = graphene.String(required=False)
     flags = graphene.String(required=False)
     channel = graphene.String(required=False)
     resolution = graphene.String(required=False)

@@ -12,10 +12,15 @@ It is dedicated to be deployed as a module of [openimis-be_py](https://github.co
 - **Hierarchical Categories**: Support for multi-level category structures with permission inheritance
 - **Priority Management**: Automatic priority assignment based on category/flag configuration
 - **Resolution Tracking**: Configure resolution times by category
+- **Default Category Support**: Automatic assignment of 'uncategorized' type for tickets without explicit category
 
 ## Configuration options (can be changed via core.ModuleConfiguration)
 
 ### Basic Configuration
+
+* `default_grievance_type`: The default category assigned to tickets when no category is specified. 
+(default: `'uncategorized'`)
+Note: This type is automatically added to the grievance_types list with `['read', 'update']` permissions if not already present.
 
 * `resolution_times`: time to resolution in form of CRON timedelta: {days},{hours} where days are values between <0, 99) and hours are between 0 and 24. 
 (default: `5,0`)
@@ -40,6 +45,7 @@ The module supports both simple and enhanced category configurations:
 #### Enhanced Format with Auto-Generated Permission IDs
 ```json
 {
+  "default_grievance_type": "uncategorized",
   "grievance_flags": [
     "public",
     {

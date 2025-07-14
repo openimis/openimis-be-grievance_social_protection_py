@@ -18,12 +18,12 @@ class ConfigProcessingTest(TestCase):
         
         TicketConfig._TicketConfig__process_unified_categories(cfg)
         
-        # Check flat list maintained
-        self.assertEqual(cfg['grievance_types'], ['complaint', 'feedback', 'appeal'])
+        # Check flat list maintained - includes 'uncategorized' added by default
+        self.assertEqual(cfg['grievance_types'], ['uncategorized', 'complaint', 'feedback', 'appeal'])
         
-        # Check processed structure
+        # Check processed structure - includes 'uncategorized' 
         processed = cfg['processed_categories']
-        self.assertEqual(len(processed), 3)
+        self.assertEqual(len(processed), 4)
         
         # Check category details
         self.assertIn('complaint', processed)
@@ -52,8 +52,8 @@ class ConfigProcessingTest(TestCase):
         
         TicketConfig._TicketConfig__process_unified_categories(cfg)
         
-        # Check flat list
-        self.assertEqual(set(cfg['grievance_types']), {'simple', 'complex', 'detailed'})
+        # Check flat list - includes 'uncategorized' added by default
+        self.assertEqual(set(cfg['grievance_types']), {'uncategorized', 'simple', 'complex', 'detailed'})
         
         # Check processed details
         processed = cfg['processed_categories']
@@ -96,8 +96,8 @@ class ConfigProcessingTest(TestCase):
         
         TicketConfig._TicketConfig__process_unified_categories(cfg)
         
-        # Check flat list includes all levels
-        expected = {'parent', 'parent|child1', 'parent|child2', 'parent|child3'}
+        # Check flat list includes all levels - plus 'uncategorized' added by default
+        expected = {'uncategorized', 'parent', 'parent|child1', 'parent|child2', 'parent|child3'}
         self.assertEqual(set(cfg['grievance_types']), expected)
         
         processed = cfg['processed_categories']

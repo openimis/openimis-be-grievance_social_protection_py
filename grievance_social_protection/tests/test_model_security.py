@@ -238,10 +238,12 @@ class ModelSecurityTest(TestCase):
         
         try:
             # Test admin user
-            queryset = Ticket.objects.all()
+            # Only test our tickets to avoid interference from other tests
+            test_ticket_ids = [t.id for t in self.tickets.values()]
+            queryset = Ticket.objects.filter(id__in=test_ticket_ids)
             filtered = Ticket.get_queryset(queryset, self.admin_user)
             
-            # Admin should see all tickets
+            # Admin should see all 3 test tickets
             self.assertEqual(filtered.count(), 3)
             for name, ticket in self.tickets.items():
                 self.assertTrue(
@@ -250,7 +252,7 @@ class ModelSecurityTest(TestCase):
                 )
             
             # Test limited user
-            queryset = Ticket.objects.all()
+            queryset = Ticket.objects.filter(id__in=test_ticket_ids)
             filtered = Ticket.get_queryset(queryset, self.limited_user)
             
             # Limited user should only see public ticket
@@ -344,7 +346,8 @@ class ModelSecurityTest(TestCase):
         
         try:
             # Test that ResolveInfo is properly handled
-            queryset = Ticket.objects.all()
+            test_ticket_ids = [t.id for t in self.tickets.values()]
+            queryset = Ticket.objects.filter(id__in=test_ticket_ids)
             filtered = Ticket.get_queryset(queryset, mock_info)
             
             # Should extract user from ResolveInfo and apply filtering
