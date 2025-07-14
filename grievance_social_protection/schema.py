@@ -8,6 +8,7 @@ import graphene_django_optimizer as gql_optimizer
 
 from core.utils import append_validity_filter
 from .apps import MODULE_NAME
+from .access_control import GrievanceAccessControl
 
 from .gql_queries import *
 from .gql_mutations import *
@@ -58,7 +59,6 @@ class Query(graphene.ObjectType):
         query = Ticket.objects.filter(*append_validity_filter(**kwargs)).all().order_by('ticket_title', )
         
         # Apply category and flag permission filtering
-        from .access_control import GrievanceAccessControl
         query = GrievanceAccessControl.filter_ticket_queryset(query, info.context.user)
         
         return gql_optimizer.query(query, info)
@@ -88,7 +88,6 @@ class Query(graphene.ObjectType):
             query = model.objects.filter(*filters, is_deleted=False).all()
 
         # Apply category and flag permission filtering
-        from .access_control import GrievanceAccessControl
         query = GrievanceAccessControl.filter_ticket_queryset(query, info.context.user)
 
         return gql_optimizer.query(query, info)

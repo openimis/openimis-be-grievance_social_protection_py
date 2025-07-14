@@ -324,27 +324,21 @@ class GrievanceAccessControlTest(TestCase):
         """Test getting accessible categories with minimum access level"""
         # User with restricted access
         categories = GrievanceAccessControl.get_accessible_categories(
-            self.user_restricted_viewer, 'restricted_read'
+            self.user_restricted_viewer
         )
         self.assertIn('complaint', categories)
-        
-        # Same user with higher requirement
-        categories = GrievanceAccessControl.get_accessible_categories(
-            self.user_restricted_viewer, 'read'
-        )
-        self.assertNotIn('complaint', categories)
     
     def test_empty_permissions_means_no_restrictions(self):
         """Test that categories/flags without permissions have no access restrictions"""
-        # simple_category has no permissions defined
-        self.assertIsNone(
+        # simple_category has no permissions defined - should return True (no restrictions)
+        self.assertTrue(
             GrievanceAccessControl.check_category_access(
                 self.user_no_rights, 'simple_category', 'read'
             )
         )
         
-        # public flag has no permissions
-        self.assertIsNone(
+        # public flag has no permissions - should return True (no restrictions)
+        self.assertTrue(
             GrievanceAccessControl.check_flag_access(
                 self.user_no_rights, 'public', 'read'
             )

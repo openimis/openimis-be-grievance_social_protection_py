@@ -8,6 +8,7 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from grievance_social_protection.models import Ticket
 from grievance_social_protection.apps import TicketConfig
+from grievance_social_protection.rights import GrievanceRightsManager
 
 logger = logging.getLogger(__name__)
 
@@ -99,9 +100,8 @@ class Command(BaseCommand):
             perms = cat_info.get('permissions', [])
             if isinstance(perms, dict):
                 perms = list(perms.keys())
-            safe_name = cat_name.lower().replace(' ', '_').replace('|', '_')
             for perm_type in perms:
-                codename = f"{perm_type}_{safe_name}_grievance"
+                codename, _, _ = GrievanceRightsManager._generate_permission_fields(perm_type, cat_name)
                 configured_perms.add(codename)
         
         # Collect configured flag permissions
@@ -109,9 +109,8 @@ class Command(BaseCommand):
             perms = flag_info.get('permissions', [])
             if isinstance(perms, dict):
                 perms = list(perms.keys())
-            safe_name = flag_name.lower().replace(' ', '_')
             for perm_type in perms:
-                codename = f"{perm_type}_flag_{safe_name}_grievance"
+                codename, _, _ = GrievanceRightsManager._generate_permission_fields(perm_type, flag_name, is_flag=True)
                 configured_perms.add(codename)
         
         # Get content type for Ticket model
@@ -215,10 +214,8 @@ class Command(BaseCommand):
             if isinstance(perms, dict):
                 perms = list(perms.keys())
             
-            safe_name = cat_name.lower().replace(' ', '_').replace('|', '_')
             for perm_type in perms:
-                codename = f"grievance_{safe_name}_{perm_type}"
-                name = f"Can {perm_type.replace('_', ' ')} {cat_name} tickets"
+                codename, _, name = GrievanceRightsManager._generate_permission_fields(perm_type, cat_name)
                 
                 if Permission.objects.filter(codename=codename, content_type=ct).exists():
                     existing.append(codename)
@@ -231,10 +228,8 @@ class Command(BaseCommand):
             if isinstance(perms, dict):
                 perms = list(perms.keys())
             
-            safe_name = flag_name.lower().replace(' ', '_')
             for perm_type in perms:
-                codename = f"grievance_flag_{safe_name}_{perm_type}"
-                name = f"Can {perm_type.replace('_', ' ')} {flag_name} flagged tickets"
+                codename, _, name = GrievanceRightsManager._generate_permission_fields(perm_type, flag_name, is_flag=True)
                 
                 if Permission.objects.filter(codename=codename, content_type=ct).exists():
                     existing.append(codename)

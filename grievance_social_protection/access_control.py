@@ -15,78 +15,82 @@ class GrievanceAccessControl:
     3. Restricted view shows limited information based on restricted_read right
     """
 
-    @classmethod
-    def check_category_access(cls, user, category_name, access_type='read'):
-        """
-        Check if user has specific access to a category.
-        
-        Args:
-            user: Django user object
-            category_name: Full category name
-            access_type: Type of access ('restricted_read', 'read', 'write', 'update')
-        
-        Returns:
-            bool: True if user has the requested access
-        """
-        if not user or user.is_anonymous:
-            return False
-        
-        processed_categories = getattr(TicketConfig, 'processed_categories', {})
-        if not processed_categories or category_name not in processed_categories:
-            # No restrictions defined - return None to indicate no restrictions
-            return None
-        
-        category_info = processed_categories[category_name]
-        generated_rights = category_info.get('generated_rights', {})
-        
-        # If no rights generated, no restrictions
-        if not generated_rights:
-            return None
-        
-        # Check if user has the specific right
-        required_right = generated_rights.get(access_type)
-        if not required_right:
-            return False
-        
-        # Use the built-in has_perm method from User model
-        return user.has_perm(str(required_right))
-    
-    @classmethod
-    def check_flag_access(cls, user, flag_name, access_type='read'):
-        """
-        Check if user has specific access to a flag.
-        
-        Args:
-            user: Django user object
-            flag_name: Flag name
-            access_type: Type of access ('restricted_read', 'read', 'write')
-        
-        Returns:
-            bool: True if user has the requested access
-        """
-        if not user or user.is_anonymous:
-            return False
+    @classmethod  
+    def _check_access(cls, user, name, access_type, config_attr):  
+        """  
+        Generic access checker for category or flag.  
 
-        processed_flags = getattr(TicketConfig, 'processed_flags', {})
-        if not processed_flags or flag_name not in processed_flags:
-            # No restrictions defined - return None to indicate no restrictions
-            return None
-        
-        flag_info = processed_flags[flag_name]
-        generated_rights = flag_info.get('generated_rights', {})
+        Args:  
+            user: Django user object  
+            name: Category or flag name  
+            access_type: Type of access ('restricted_read', 'read', 'write', 'update')  
+            config_attr: 'processed_categories' or 'processed_flags'  
+
+        Returns:  
+            bool: True if user has the requested access, False if denied  
+        """  
+        if not user or user.is_anonymous:  
+            return False  
+
+        processed = getattr(TicketConfig, config_attr, {})  
+        if not processed or name not in processed:  
+            return True  
+
+        info = processed[name]  
+        generated_rights = info.get('generated_rights', {})
         
         # If no rights generated, no restrictions
         if not generated_rights:
-            return None
+            return True
         
         # Check if user has the specific right
         required_right = generated_rights.get(access_type)
-        if not required_right:
-            return False
-        
-        # Use the built-in has_perm method from User model
-        return user.has_perm(str(required_right))
+
+        if not required_right:  
+            return False  
+
+        return user.has_perm(str(required_right))  
+
+    @classmethod  
+    def check_category_access(cls, user, category_name, access_type='read'):  
+        return cls._check_access(user, category_name, access_type, 'processed_categories')
     
+    @classmethod  
+    def check_flag_access(cls, user, flag_name, access_type='read'):  
+        return cls._check_access(user, flag_name, access_type, 'processed_flags')
+    
+    @classmethod
+    def can_view_category(cls, user, category_name):
+        """Check if user can view a category (has either read or restricted_read access)"""
+        return (cls.check_category_access(user, category_name, 'read') is True or 
+                cls.check_category_access(user, category_name, 'restricted_read') is True)
+    
+    @classmethod
+    def can_view_flag(cls, user, flag_name):
+        """Check if user can view a flag (has either read or restricted_read access)"""
+        return (cls.check_flag_access(user, flag_name, 'read') is True or 
+                cls.check_flag_access(user, flag_name, 'restricted_read') is True)
+    
+    @classmethod
+    def has_category_restrictions(cls, category_name):
+        """Check if a category has any access restrictions"""
+        processed = getattr(TicketConfig, 'processed_categories', {})
+        if not processed or category_name not in processed:
+            return False
+        info = processed[category_name]
+        generated_rights = info.get('generated_rights', {})
+        return bool(generated_rights)  
+
+    @classmethod
+    def has_flag_restrictions(cls, flag_name):
+        """Check if a flag has any access restrictions"""
+        processed = getattr(TicketConfig, 'processed_flags', {})
+        if not processed or flag_name not in processed:
+            return False
+        info = processed[flag_name]
+        generated_rights = info.get('generated_rights', {})
+        return bool(generated_rights)  
+
     @classmethod
     def get_user_access_level(cls, user, category_name=None, flag_names=None):
         """
@@ -100,25 +104,26 @@ class GrievanceAccessControl:
         
         # Check category access
         if category_name:
-            # Check for full access (create, update, delete)
-            create_access = cls.check_category_access(user, category_name, 'create')
-            update_access = cls.check_category_access(user, category_name, 'update')
-            delete_access = cls.check_category_access(user, category_name, 'delete')
-            read_access = cls.check_category_access(user, category_name, 'read')
-            restricted_access = cls.check_category_access(user, category_name, 'restricted_read')
-            
-            # Skip if category has no restrictions
-            if read_access is None and restricted_access is None:
-                category_access = None  # No restrictions
-            elif create_access or update_access or delete_access:
-                # If user has any write permission, they have full access
-                category_access = 'full'
-            elif read_access:
-                category_access = 'read'
-            elif restricted_access:
-                category_access = 'restricted'
+            # Check if category has restrictions
+            if not cls.has_category_restrictions(category_name):
+                category_access = 'full'  # No restrictions means full access
             else:
-                category_access = 'none'
+                # Check for full access (create, update, delete)
+                create_access = cls.check_category_access(user, category_name, 'create')
+                update_access = cls.check_category_access(user, category_name, 'update')
+                delete_access = cls.check_category_access(user, category_name, 'delete')
+                read_access = cls.check_category_access(user, category_name, 'read')
+                restricted_access = cls.check_category_access(user, category_name, 'restricted_read')
+                
+                if create_access or update_access or delete_access:
+                    # If user has any write permission, they have full access
+                    category_access = 'full'
+                elif read_access:
+                    category_access = 'read'
+                elif restricted_access:
+                    category_access = 'restricted'
+                else:
+                    category_access = 'none'
         
         # Check flag access - most restrictive across different flags
         if flag_names:
@@ -126,16 +131,16 @@ class GrievanceAccessControl:
             flag_accesses = []
             
             for flag in flag_list:
+                # Skip flags with no restrictions
+                if not cls.has_flag_restrictions(flag):
+                    continue  # No restrictions means we don't need to check
+                
                 # Check each access level - highest permission for each individual flag
                 create_access = cls.check_flag_access(user, flag, 'create')
                 update_access = cls.check_flag_access(user, flag, 'update')
                 delete_access = cls.check_flag_access(user, flag, 'delete')
                 read_access = cls.check_flag_access(user, flag, 'read')
                 restricted_access = cls.check_flag_access(user, flag, 'restricted_read')
-                
-                # Skip flags with no restrictions (None means no restrictions)
-                if read_access is None and restricted_access is None:
-                    continue
                 
                 # For each flag, determine the actual access level
                 if create_access or update_access or delete_access:
@@ -190,13 +195,12 @@ class GrievanceAccessControl:
         return 'full'
     
     @classmethod
-    def get_accessible_categories(cls, user, min_access='restricted_read'):
+    def get_accessible_categories(cls, user):
         """
         Return list of categories accessible to the user.
         
         Args:
             user: The user to check access for
-            min_access: Minimum access level required ('restricted_read', 'read', 'write')
         
         Returns:
             List of category names the user can access
@@ -211,14 +215,13 @@ class GrievanceAccessControl:
         accessible_categories = []
         
         for category_name in all_categories:
-            access = cls.check_category_access(user, category_name, min_access)
-            if access is True or access is None:  # True = has access, None = no restrictions
+            if cls.can_view_category(user, category_name):
                 accessible_categories.append(category_name)
         
         return accessible_categories
     
     @classmethod
-    def get_accessible_flags(cls, user, min_access='restricted_read'):
+    def get_accessible_flags(cls, user):
         """Return list of flags accessible to the user"""
         
         all_flags = list(TicketConfig.grievance_flags)
@@ -230,8 +233,7 @@ class GrievanceAccessControl:
         accessible_flags = []
         
         for flag_name in all_flags:
-            access = cls.check_flag_access(user, flag_name, min_access)
-            if access is True or access is None:  # True = has access, None = no restrictions
+            if cls.can_view_flag(user, flag_name):
                 accessible_flags.append(flag_name)
         
         return accessible_flags
@@ -270,7 +272,7 @@ class GrievanceAccessControl:
         """
         
         # Get categories user can at least view with restricted access
-        accessible_categories = cls.get_accessible_categories(user, 'restricted_read')
+        accessible_categories = cls.get_accessible_categories(user)
         
         # Filter tickets by accessible categories
         if accessible_categories is not None:
@@ -283,12 +285,8 @@ class GrievanceAccessControl:
             restricted_flags = []
             for flag_name, flag_info in TicketConfig.processed_flags.items():
                 if flag_info.get('generated_rights'):
-                    # Check if user has either read or restricted_read access
-                    read_access = cls.check_flag_access(user, flag_name, 'read')
-                    restricted_access = cls.check_flag_access(user, flag_name, 'restricted_read')
-                    
-                    # If user has neither read nor restricted_read, they can't access tickets with this flag
-                    if not read_access and not restricted_access:
+                    # If user can't view this flag, they can't access tickets with this flag
+                    if not cls.can_view_flag(user, flag_name):
                         restricted_flags.append(flag_name)
             
             # Exclude tickets with completely restricted flags
@@ -410,6 +408,24 @@ class GrievanceAccessControl:
         return filtered_fields
     
     @classmethod
+    def _build_category_dict(cls, name, info, user, parent_info=None, is_child=False):
+        """Build a category dictionary with common fields"""
+        base_dict = {
+            'name': name.split('|')[-1] if is_child else name,
+            'priority': info.get('priority', parent_info.get('priority', 'Medium') if parent_info else 'Medium'),
+            'permissions': info.get('permissions', []),
+            'default_flags': info.get('default_flags', []),
+            'access_level': cls.get_user_access_level(user, name)
+        }
+        
+        if is_child:
+            base_dict['full_name'] = name
+        else:
+            base_dict['children'] = []
+            
+        return base_dict
+    
+    @classmethod
     def get_category_hierarchy(cls, user):
         """Return hierarchical structure of categories accessible to the user"""
         
@@ -422,32 +438,16 @@ class GrievanceAccessControl:
         # Build hierarchy from processed categories
         for category_name, category_info in processed_categories.items():
             if not category_info.get('parent'):
-                access = cls.check_category_access(user, category_name, 'restricted_read')
-                if access is True or access is None:  # Has access or no restrictions
-                    category_dict = {
-                    'name': category_name,
-                    'priority': category_info.get('priority', 'Medium'),
-                    'permissions': category_info.get('permissions', []),
-                    'default_flags': category_info.get('default_flags', []),
-                    'children': [],
-                    'access_level': cls.get_user_access_level(user, category_name)
-                }
-                
-                # Add accessible children
-                for child_name, child_info in processed_categories.items():
-                    if child_info.get('parent') == category_name:
-                        child_access = cls.check_category_access(user, child_name, 'restricted_read')
-                        if child_access is True or child_access is None:  # Has access or no restrictions
-                            child_dict = {
-                            'name': child_name.split('|')[-1],
-                            'full_name': child_name,
-                            'priority': child_info.get('priority', category_info.get('priority', 'Medium')),
-                            'permissions': child_info.get('permissions', []),
-                            'default_flags': child_info.get('default_flags', []),
-                            'access_level': cls.get_user_access_level(user, child_name)
-                            }
-                            category_dict['children'].append(child_dict)
-                
-                hierarchy.append(category_dict)
+                if cls.can_view_category(user, category_name):
+                    category_dict = cls._build_category_dict(category_name, category_info, user)
+                    
+                    # Add accessible children
+                    for child_name, child_info in processed_categories.items():
+                        if child_info.get('parent') == category_name:
+                            if cls.can_view_category(user, child_name):  # Has access
+                                child_dict = cls._build_category_dict(child_name, child_info, user, category_info, is_child=True)
+                                category_dict['children'].append(child_dict)
+                    
+                    hierarchy.append(category_dict)
         
         return hierarchy

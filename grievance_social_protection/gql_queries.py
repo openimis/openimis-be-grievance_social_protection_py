@@ -474,16 +474,6 @@ class GrievanceTypeConfigurationGQLType(ObjectType):
         
         return flags
     
-    def resolve_accessible_categories(self, info):
-        """Return flat list of accessible categories for create operations"""
-        user = info.context.user
-        return GrievanceAccessControl.get_accessible_categories(user)
-    
-    def resolve_accessible_flags(self, info):
-        """Return flat list of accessible flags for use operations"""
-        user = info.context.user
-        return GrievanceAccessControl.get_accessible_flags(user)
-
     def resolve_grievance_category_staff_roles(self, info):
         category_staff_role_list = []
         for category_key, role_ids in TicketConfig.default_attending_staff_role_ids.items():
