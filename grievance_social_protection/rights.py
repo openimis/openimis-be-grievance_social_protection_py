@@ -6,6 +6,7 @@ import re
 
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from .apps import DEFAULT_CFG
 from .models import Ticket
 
 logger = logging.getLogger(__name__)
@@ -156,6 +157,7 @@ class GrievanceRightsManager:
             
             # Set as class attribute
             for right_name, right_ids in grouped_rights.items():
+                DEFAULT_CFG[right_name] = right_ids
                 setattr(app_config, right_name, right_ids)
 
     @classmethod
