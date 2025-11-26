@@ -99,8 +99,8 @@ class TicketConfig(AppConfig):
         self.__validate_grievance_dict_fields(cfg, 'default_resolution')
         self.__validate_grievance_default_resolution_time(cfg)
         self.__load_config(cfg)
-        # Generate rights only if we're not in a migration
-        if 'migrate' not in sys.argv and 'makemigrations' not in sys.argv:
+        # Generate rights only if we're not in a migration, and NO_DATABASE is set
+        if os.environ.get("NO_DATABASE") != "True" and 'migrate' not in sys.argv and 'makemigrations' not in sys.argv:
             from .rights import GrievanceRightsManager
             GrievanceRightsManager.generate_automatic_rights(self)
 
