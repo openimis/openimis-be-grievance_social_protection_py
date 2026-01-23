@@ -39,35 +39,35 @@ class ConfigProcessingTest(TestCase):
                 {
                     'name': 'complex',
                     'priority': 'High',
-                    'permissions': ['127001', '127002'] 
+                    'permissions': ['read', 'create']
                 },
                 {
                     'name': 'detailed',
                     'priority': 'Critical',
-                    'permissions': ['127003', '127004'],
+                    'permissions': ['update', 'delete'],
                     'default_flags': ['urgent']
                 }
             ]
         }
-        
+
         TicketConfig._TicketConfig__process_unified_categories(cfg)
-        
+
         # Check flat list - includes 'uncategorized' added by default
         self.assertEqual(set(cfg['grievance_types']), {'uncategorized', 'simple', 'complex', 'detailed'})
-        
+
         # Check processed details
         processed = cfg['processed_categories']
-        
+
         # Simple string
         self.assertEqual(processed['simple']['permissions'], [])
-        
+
         # List permissions
         self.assertEqual(processed['complex']['priority'], 'High')
-        self.assertEqual(processed['complex']['permissions'], ['127001', '127002'])
-        
+        self.assertEqual(processed['complex']['permissions'], ['read', 'create'])
+
         # Another list permissions format
         self.assertEqual(processed['detailed']['priority'], 'Critical')
-        self.assertEqual(processed['detailed']['permissions'], ['127003', '127004'])
+        self.assertEqual(processed['detailed']['permissions'], ['update', 'delete'])
         self.assertEqual(processed['detailed']['default_flags'], ['urgent'])
     
     def test_process_hierarchical_categories(self):
@@ -77,12 +77,12 @@ class ConfigProcessingTest(TestCase):
                 {
                     'name': 'parent',
                     'priority': 'High',
-                    'permissions': ['127001', '127002'],
+                    'permissions': ['read', 'create'],
                     'default_flags': ['important'],
                     'children': [
                         {
                             'name': 'child1',
-                            'permissions': ['127003']  # Override parent permissions
+                            'permissions': ['update']  # Override parent permissions
                         },
                         'child2',  # Simple string child
                         {
@@ -93,15 +93,15 @@ class ConfigProcessingTest(TestCase):
                 }
             ]
         }
-        
+
         TicketConfig._TicketConfig__process_unified_categories(cfg)
-        
+
         # Check flat list includes all levels - plus 'uncategorized' added by default
         expected = {'uncategorized', 'parent', 'parent|child1', 'parent|child2', 'parent|child3'}
         self.assertEqual(set(cfg['grievance_types']), expected)
-        
+
         processed = cfg['processed_categories']
-        
+
         # Check parent
         self.assertEqual(processed['parent']['priority'], 'High')
         self.assertEqual(processed['parent']['children'], {
@@ -109,19 +109,19 @@ class ConfigProcessingTest(TestCase):
             'child2': 'parent|child2',
             'child3': 'parent|child3'
         })
-        
+
         # Check child inheritance
         self.assertEqual(processed['parent|child1']['parent'], 'parent')
         self.assertEqual(processed['parent|child1']['default_flags'], ['important'])
-        self.assertEqual(processed['parent|child1']['permissions'], ['127003'])
+        self.assertEqual(processed['parent|child1']['permissions'], ['update'])
 
         self.assertEqual(processed['parent|child3']['default_flags'], ['important'])  # Inherited
-        self.assertEqual(processed['parent|child3']['permissions'], ['127001', '127002'])  # Inherited
+        self.assertEqual(processed['parent|child3']['permissions'], ['read', 'create'])  # Inherited
         self.assertEqual(processed['parent|child3']['priority'], 'Critical')
 
         # Check simple string child
         self.assertEqual(processed['parent|child2']['priority'], 'High')  # Inherited
-        self.assertEqual(processed['parent|child2']['permissions'], ['127001', '127002'])  # Inherited from parent
+        self.assertEqual(processed['parent|child2']['permissions'], ['read', 'create'])  # Inherited from parent
         self.assertEqual(processed['parent|child2']['default_flags'], ['important'])  # Inherited
 
 
@@ -133,24 +133,24 @@ class ConfigProcessingTest(TestCase):
                 {
                     'name': 'complex_flag',
                     'priority': 'High',
-                    'permissions': ['127004', '127005']
+                    'permissions': ['read', 'update']
                 }
             ]
         }
-        
+
         TicketConfig._TicketConfig__process_unified_flags(cfg)
-        
+
         # Check flat list
         self.assertEqual(cfg['grievance_flags'], ['simple_flag', 'complex_flag'])
 
         processed = cfg['processed_flags']
-        
+
         # Simple flag
         self.assertEqual(processed['simple_flag']['permissions'], [])
-        
+
         # List permissions - stored as-is
         self.assertEqual(processed['complex_flag']['priority'], 'High')
-        self.assertEqual(processed['complex_flag']['permissions'], ['127004', '127005'])
+        self.assertEqual(processed['complex_flag']['permissions'], ['read', 'update'])
     
     def test_category_resolution_times(self):
         """Test processing categories with resolution times"""

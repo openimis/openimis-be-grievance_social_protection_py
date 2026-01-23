@@ -49,56 +49,46 @@ class TicketGQLType(DjangoObjectType):
     def _should_restrict_field(field_name, root, info):
         """
         Check if a field should be restricted based on user's access level and visible_fields configuration.
+
+        Access level is determined by both category and flags (most restrictive wins).
+        Visible fields configuration is per-category only.
         """
-        
         user = info.context.user
-        access_level = GrievanceAccessControl.get_user_access_level(user, root.category, root.flags)
-        
-        # Full access - no restrictions
-        if access_level in ['full', 'read']:
-            return False
-        
-        # No access - restrict everything
-        if access_level == 'none':
+        visible_fields = GrievanceAccessControl.get_visible_fields(user, root.category)
+
+        # None means unrestricted access based on category - but check flags too
+        if visible_fields is None:
+            # Double-check with flags included for full access determination
+            access_level = GrievanceAccessControl.get_user_access_level(user, root.category, root.flags)
+            return access_level not in (GrievanceAccessControl.ACCESS_FULL, GrievanceAccessControl.ACCESS_READ)
+
+        # Empty list means no access
+        if not visible_fields:
             return True
-        
-        # Restricted access - check visible_fields
-        if access_level == 'restricted':
-            visible_fields = GrievanceAccessControl.get_visible_fields(user, root.category)
-            # If visible_fields is None, use default behavior (restrict sensitive fields)
-            if visible_fields is None:
-                # Default restricted fields when no visible_fields configured
-                default_hidden = ['description', 'resolution', 'reporter_id', 'channel', 
-                                'attending_staff', 'json_ext', 'category', 'flags', 'title']
-                return field_name in default_hidden
-            # If visible_fields is defined, only show fields in the list
-            return field_name not in visible_fields
-        
-        return True
+
+        # Check if field is in visible list
+        return field_name not in visible_fields
     
     @staticmethod
     def resolve_reporter_type(root, info):
         check_ticket_perms(info)
-        # Check access level
-        access_level = GrievanceAccessControl.get_user_access_level(info.context.user, root.category, root.flags)
-        if access_level in ['none', 'restricted']:
-            return None  # Hide for restricted access
+        # Use _should_restrict_field for consistent access control
+        if TicketGQLType._should_restrict_field('reporter_type', root, info):
+            return None
         return root.reporter_type.id if root.reporter_type else None
 
     @staticmethod
     def resolve_reporter_type_name(root, info):
         check_ticket_perms(info)
-        access_level = GrievanceAccessControl.get_user_access_level(info.context.user, root.category, root.flags)
-        if access_level in ['none', 'restricted']:
-            return None  # Hide for restricted access
+        if TicketGQLType._should_restrict_field('reporter_type', root, info):
+            return None
         return root.reporter_type.name if root.reporter_type else None
 
     @staticmethod
     def resolve_reporter(root, info):
         check_ticket_perms(info)
-        access_level = GrievanceAccessControl.get_user_access_level(info.context.user, root.category, root.flags)
-        if access_level in ['none', 'restricted']:
-            return None  # Hide reporter details for restricted access
+        if TicketGQLType._should_restrict_field('reporter', root, info):
+            return None
         return model_obj_to_json(root.reporter) if root.reporter else None
 
     @staticmethod
@@ -109,9 +99,8 @@ class TicketGQLType(DjangoObjectType):
     @staticmethod
     def resolve_reporter_first_name(root, info):
         check_ticket_perms(info)
-        access_level = GrievanceAccessControl.get_user_access_level(info.context.user, root.category, root.flags)
-        if access_level in ['none', 'restricted']:
-            return None  # Hide personal info for restricted access
+        if TicketGQLType._should_restrict_field('reporter_first_name', root, info):
+            return "[Restricted]"
         if root.reporter_type:
             content_type = ContentType.objects.get_for_model(root.reporter_type.model_class())
             if content_type:
@@ -128,9 +117,8 @@ class TicketGQLType(DjangoObjectType):
     @staticmethod
     def resolve_reporter_last_name(root, info):
         check_ticket_perms(info)
-        access_level = GrievanceAccessControl.get_user_access_level(info.context.user, root.category, root.flags)
-        if access_level in ['none', 'restricted']:
-            return None  # Hide personal info for restricted access
+        if TicketGQLType._should_restrict_field('reporter_last_name', root, info):
+            return "[Restricted]"
         if root.reporter_type:
             content_type = ContentType.objects.get_for_model(root.reporter_type.model_class())
             if content_type:
@@ -147,9 +135,8 @@ class TicketGQLType(DjangoObjectType):
     @staticmethod
     def resolve_reporter_dob(root, info):
         check_ticket_perms(info)
-        access_level = GrievanceAccessControl.get_user_access_level(info.context.user, root.category, root.flags)
-        if access_level in ['none', 'restricted']:
-            return None  # Hide personal info for restricted access
+        if TicketGQLType._should_restrict_field('reporter_dob', root, info):
+            return None
         if root.reporter_type:
             content_type = ContentType.objects.get_for_model(root.reporter_type.model_class())
             if content_type:
@@ -166,25 +153,25 @@ class TicketGQLType(DjangoObjectType):
     def resolve_description(self, info):
         """Return [Restricted] for restricted access"""
         if TicketGQLType._should_restrict_field('description', self, info):
-            return "[Restricted]" if self.description else None
+            return "[Restricted]"
         return self.description
-    
+
     def resolve_resolution(self, info):
         """Return [Restricted] for restricted access"""
         if TicketGQLType._should_restrict_field('resolution', self, info):
-            return "[Restricted]" if self.resolution else None
+            return "[Restricted]"
         return self.resolution
-    
+
     def resolve_reporter_id(self, info):
         """Hide reporter_id for restricted access"""
         if TicketGQLType._should_restrict_field('reporter_id', self, info):
             return None
         return self.reporter_id
-    
+
     def resolve_channel(self, info):
         """Return [Restricted] for restricted access"""
         if TicketGQLType._should_restrict_field('channel', self, info):
-            return "[Restricted]" if self.channel else None
+            return "[Restricted]"
         return self.channel
     
     def resolve_attending_staff(self, info):

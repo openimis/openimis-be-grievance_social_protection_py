@@ -115,7 +115,10 @@ class Query(graphene.ObjectType):
         #     filters += [Q(code__icontains=str) | Q(name__icontains=str)]
 
         query = Ticket.objects.filter(*filters).all()
-        
+
+        # Apply category and flag permission filtering
+        query = GrievanceAccessControl.filter_ticket_queryset(query, info.context.user)
+
         return gql_optimizer.query(query, info)
 
     # def resolve_claim_attachments(self, info, **kwargs):

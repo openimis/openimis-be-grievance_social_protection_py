@@ -34,6 +34,12 @@ class Command(BaseCommand):
             action='store_true',
             help='Show what would be done without making changes'
         )
+        parser.add_argument(
+            '--yes', '-y',
+            action='store_true',
+            dest='yes',
+            help='Skip confirmation prompts (for non-interactive environments like CI/CD)'
+        )
 
     def handle(self, *args, **options):
         action = options['action']
@@ -41,11 +47,11 @@ class Command(BaseCommand):
         if action == 'list':
             self.list_permissions(options['format'])
         elif action == 'cleanup':
-            self.cleanup_permissions(options['dry_run'])
+            self.cleanup_permissions(options['dry_run'], options['yes'])
         elif action == 'export':
             self.export_permissions(options['format'])
         elif action == 'sync':
-            self.sync_permissions(options['dry_run'])
+            self.sync_permissions(options['dry_run'], options['yes'])
 
     def list_permissions(self, format_type):
         # Get content type for Ticket model
@@ -90,7 +96,7 @@ class Command(BaseCommand):
             for perm in perms:
                 self.stdout.write(f'{perm.id},"{perm.codename}","{perm.name}"')
 
-    def cleanup_permissions(self, dry_run):
+    def cleanup_permissions(self, dry_run, skip_confirmation=False):
         """Remove orphaned permissions not in current configuration"""
         # Get current configuration
         configured_perms = set()
@@ -143,8 +149,13 @@ class Command(BaseCommand):
         if dry_run:
             self.stdout.write(self.style.WARNING("\nDry run - no changes made."))
         else:
-            confirm = input("\nDelete these permissions? (yes/no): ")
-            if confirm.lower() == 'yes':
+            if skip_confirmation:
+                confirmed = True
+            else:
+                confirm = input("\nDelete these permissions? (yes/no): ")
+                confirmed = confirm.lower() == 'yes'
+
+            if confirmed:
                 count = len(orphaned)
                 for perm in orphaned:
                     perm.delete()
@@ -198,7 +209,7 @@ class Command(BaseCommand):
                 for ptype, pid in perms.items():
                     self.stdout.write(f"    {ptype}: {pid}")
 
-    def sync_permissions(self, dry_run):
+    def sync_permissions(self, dry_run, skip_confirmation=False):
         """Sync permissions with current configuration"""
         try:
             ct = ContentType.objects.get_for_model(Ticket)
@@ -249,11 +260,16 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("\nDry run - no changes made."))
         else:
             if created:
-                confirm = input("\nCreate these permissions? (yes/no): ")
-                if confirm.lower() == 'yes':
-                    # This will trigger the auto-generation in apps.py
+                if skip_confirmation:
+                    confirmed = True
+                else:
+                    confirm = input("\nCreate these permissions? (yes/no): ")
+                    confirmed = confirm.lower() == 'yes'
+
+                if confirmed:
+                    # This will trigger the auto-generation
                     self.stdout.write("\nTriggering permission generation...")
-                    TicketConfig._TicketConfig__generate_automatic_rights()
+                    GrievanceRightsManager.generate_automatic_rights(TicketConfig)
                     self.stdout.write(self.style.SUCCESS("Permissions synchronized."))
                 else:
                     self.stdout.write("Sync cancelled.")

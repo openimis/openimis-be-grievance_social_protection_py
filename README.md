@@ -18,9 +18,8 @@ It is dedicated to be deployed as a module of [openimis-be_py](https://github.co
 
 ### Basic Configuration
 
-* `default_grievance_type`: The default category assigned to tickets when no category is specified. 
+* `default_grievance_type`: The category name assigned to tickets when no category is specified. This should be a simple string value. If this category doesn't exist in `grievance_types`, it will be auto-added with `['read', 'update']` permissions.
 (default: `'uncategorized'`)
-Note: This type is automatically added to the grievance_types list with `['read', 'update']` permissions if not already present.
 
 * `resolution_times`: time to resolution in form of CRON timedelta: {days},{hours} where days are values between <0, 99) and hours are between 0 and 24. 
 (default: `5,0`)
@@ -134,9 +133,6 @@ Resolution times are determined in the following order:
 ```json
 {
   "resolution_times": "5,0",  // Global default: 5 days
-  "default_resolution": {     // Legacy configuration (still supported)
-    "feedback": "7,0"
-  },
   "grievance_types": [
     {
       "name": "complaint",
@@ -210,7 +206,7 @@ The `visible_fields` feature controls field visibility for users with `restricte
 
 ### Flags Configuration
 
-Similarly, flags support both simple and enhanced formats:
+Flags are single-level configurations only and do NOT support hierarchical/nested structures. Unlike categories (`grievance_types`) which support parent-child relationships with permission inheritance, flags are always flat.
 
 #### Simple Format
 ```json

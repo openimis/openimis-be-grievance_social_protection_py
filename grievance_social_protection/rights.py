@@ -6,7 +6,7 @@ import re
 
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-from .apps import DEFAULT_CFG
+from django.db import transaction
 from .models import Ticket
 
 logger = logging.getLogger(__name__)
@@ -60,9 +60,6 @@ class GrievanceRightsManager:
             all_rights: Dictionary to collect all rights
         """
         permissions = item_info.get('permissions', [])
-        if not permissions:
-            return
-            
         item_info['generated_rights'] = {}
         
         for perm_type in permissions:
@@ -78,23 +75,19 @@ class GrievanceRightsManager:
                 logger.info(f"Using existing permission: {codename} (ID: {perm.id})")
             else:
                 # Generate new ID following suffix pattern
-                try:
-                    new_id = cls._get_next_available_id(perm_type, used_ids)
-                    
-                    # Create new permission
-                    perm = Permission.objects.create(
-                        id=new_id,
-                        codename=codename,
-                        name=permission_name,
-                        content_type=ct
-                    )
-                    
-                    item_info['generated_rights'][perm_type] = perm.id
-                    used_ids.add(new_id)
-                    logger.info(f"Created new permission: {codename} (ID: {new_id})")
-                except ValueError as e:
-                    logger.error(f"Failed to create permission {codename}: {e}")
-                    continue
+                new_id = cls._get_next_available_id(perm_type, used_ids)
+
+                # Create new permission
+                perm = Permission.objects.create(
+                    id=new_id,
+                    codename=codename,
+                    name=permission_name,
+                    content_type=ct
+                )
+
+                item_info['generated_rights'][perm_type] = perm.id
+                used_ids.add(new_id)
+                logger.info(f"Created new permission: {codename} (ID: {new_id})")
             
             all_rights[right_name] = item_info['generated_rights'][perm_type]
 
@@ -104,60 +97,64 @@ class GrievanceRightsManager:
         Generate automatic rights using Django's auth_permission table.
         Permissions are stored persistently to maintain stable IDs across config changes.
         """
-        
         # Get content type for Ticket model
         ct = ContentType.objects.get_for_model(Ticket)
-        
-        # Get all existing grievance permissions from the reserved range
-        existing_perms = Permission.objects.filter(
-            content_type=ct,
-            codename__endswith='_grievance',
-            id__range=(cls.GRIEVANCE_RIGHT_BASE, cls.GRIEVANCE_RIGHT_MAX)
-        )
-        
-        # Build map of existing permissions by codename
-        existing_by_codename = {perm.codename: perm for perm in existing_perms}
-        
-        # Get used IDs in our range
-        used_ids = set(Permission.objects.filter(
-            id__range=(cls.GRIEVANCE_RIGHT_BASE, cls.GRIEVANCE_RIGHT_MAX)
-        ).values_list('id', flat=True))
-        
-        all_rights = {}  # Collect all rights
-        
-        # Process categories
-        processed_categories = getattr(app_config, 'processed_categories', {})
-        for category_name, category_info in processed_categories.items():
-            cls._process_permissions(
-                category_name, category_info, False, 
-                existing_by_codename, used_ids, ct, all_rights
+
+        with transaction.atomic():
+            # Lock all permissions in our reserved range to prevent race conditions
+            # during concurrent app startups. select_for_update() acquires row-level
+            # locks that block other transactions from reading these rows until we commit.
+            locked_perms = Permission.objects.select_for_update().filter(
+                id__range=(cls.GRIEVANCE_RIGHT_BASE, cls.GRIEVANCE_RIGHT_MAX)
             )
-        
-        # Process flags
-        processed_flags = getattr(app_config, 'processed_flags', {})
-        for flag_name, flag_info in processed_flags.items():
-            cls._process_permissions(
-                flag_name, flag_info, True,
-                existing_by_codename, used_ids, ct, all_rights
+
+            # Build used_ids from locked queryset to ensure consistency
+            used_ids = set(locked_perms.values_list('id', flat=True))
+
+            # Get all existing grievance permissions from the reserved range
+            existing_perms = locked_perms.filter(
+                content_type=ct,
+                codename__endswith='_grievance',
             )
-        
-        # Store generated rights for documentation
+
+            # Build map of existing permissions by codename
+            existing_by_codename = {perm.codename: perm for perm in existing_perms}
+
+            all_rights = {}  # Collect all rights
+
+            # Process categories
+            processed_categories = getattr(app_config, 'processed_categories', {})
+            for category_name, category_info in processed_categories.items():
+                cls._process_permissions(
+                    category_name, category_info, False,
+                    existing_by_codename, used_ids, ct, all_rights
+                )
+
+            # Process flags
+            processed_flags = getattr(app_config, 'processed_flags', {})
+            for flag_name, flag_info in processed_flags.items():
+                cls._process_permissions(
+                    flag_name, flag_info, True,
+                    existing_by_codename, used_ids, ct, all_rights
+                )
+
+        # Store generated rights for documentation (outside transaction)
         app_config.generated_rights = all_rights
-        
+
         # Log summary of permissions
         if all_rights:
             logger.info(f"Generated/verified {len(all_rights)} grievance permissions")
-            
+
             # Group rights by permission name to match OpenIMIS convention
             grouped_rights = {}
             for right_name, right_id in all_rights.items():
                 if right_name not in grouped_rights:
                     grouped_rights[right_name] = []
                 grouped_rights[right_name].append(right_id)
-            
-            # Set as class attribute
+
+            # Set as class attribute only - do not mutate the module-level DEFAULT_CFG
+            # to avoid shared state issues across concurrent processes
             for right_name, right_ids in grouped_rights.items():
-                DEFAULT_CFG[right_name] = right_ids
                 setattr(app_config, right_name, right_ids)
 
     @classmethod

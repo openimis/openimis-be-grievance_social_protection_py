@@ -69,12 +69,7 @@ class Ticket(HistoryBusinessModel):
     def filter_queryset(cls, queryset=None):
         if queryset is None:
             queryset = cls.objects.all()
-        # Filter by validity dates using the actual field names
-        from core.utils import TimeUtils
-        queryset = queryset.filter(
-            models.Q(date_valid_from__lte=TimeUtils.now()) | models.Q(date_valid_from__isnull=True),
-            models.Q(date_valid_to__gte=TimeUtils.now()) | models.Q(date_valid_to__isnull=True),
-        )
+        queryset = queryset.filter(*core.filter_validity())
         return queryset
 
     @classmethod

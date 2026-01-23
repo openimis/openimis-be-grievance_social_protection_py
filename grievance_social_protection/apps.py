@@ -178,28 +178,36 @@ class TicketConfig(AppConfig):
     
     @classmethod
     def __validate_resolution_time_format(cls, value, context=""):
-        """Validate a single resolution time format"""
+        """
+        Validate a single resolution time format.
+
+        Raises:
+            ValueError: If the resolution time format is invalid.
+        """
         if ',' not in value:
-            logger.warning(f"Invalid resolution time format for {context}. "
-                         "Configuration should contain two integers representing days and hours, "
-                         "separated by a comma.")
-            return False
-        
+            raise ValueError(
+                f"Invalid resolution time format for {context}. "
+                "Configuration should contain two integers representing days and hours, "
+                "separated by a comma."
+            )
+
         try:
             parts = value.split(',')
             days = int(parts[0])
             hours = int(parts[1])
-            
-            if 0 <= days < 99 and 0 <= hours < 24:
-                return True
-            else:
-                logger.warning(f"Invalid resolution time values for {context}. "
-                             "Days must be between 0 and 99, and hours must be between 0 and 24.")
-                return False
-        except (ValueError, IndexError):
-            logger.warning(f"Invalid resolution time format for {context}. "
-                         "Expected format: 'days,hours' where both are integers.")
-            return False
+
+            if not (0 <= days < 99 and 0 <= hours < 24):
+                raise ValueError(
+                    f"Invalid resolution time values for {context}. "
+                    "Days must be between 0 and 99, and hours must be between 0 and 24."
+                )
+        except (ValueError, IndexError) as e:
+            if isinstance(e, ValueError) and "Invalid resolution time" in str(e):
+                raise
+            raise ValueError(
+                f"Invalid resolution time format for {context}. "
+                "Expected format: 'days,hours' where both are integers."
+            )
 
     @classmethod
     def __process_unified_categories(cls, cfg):
@@ -214,15 +222,15 @@ class TicketConfig(AppConfig):
         default_grievance_type = cfg.get('default_grievance_type', DEFAULT_GRIEVANCE_TYPE)
         if default_grievance_type:
             # Check if default_grievance_type exists in categories
-            type_exists = False
-            for cat in categories:
-                if isinstance(cat, str) and cat == default_grievance_type:
-                    type_exists = True
-                    break
-                elif isinstance(cat, dict) and cat.get('name') == default_grievance_type:
-                    type_exists = True
-                    break
-            
+            def get_category_name(cat):
+                if isinstance(cat, str):
+                    return cat
+                if isinstance(cat, dict):
+                    return cat.get('name')
+                return None
+
+            type_exists = any(get_category_name(cat) == default_grievance_type for cat in categories)
+
             # If not found, add it with default permissions
             if not type_exists:
                 categories.insert(0, {
@@ -233,52 +241,52 @@ class TicketConfig(AppConfig):
         
         def process_category_item(item, parent_name=None, parent_info=None):
             """Process a single category item (string or dict)"""
+            parent = parent_info or {}
+
             if isinstance(item, str):
                 # Simple string format (backward compatible)
                 full_name = f"{parent_name}|{item}" if parent_name else item
                 processed_categories[full_name] = {
-                    'priority': parent_info.get('priority', 'Medium') if parent_info else 'Medium',
-                    'permissions': parent_info.get('permissions', []) if parent_info else [],  # Inherit from parent
-                    'default_flags': parent_info.get('default_flags', []) if parent_info else [],
-                    'resolution_times': parent_info.get('resolution_times') if parent_info else None,
+                    'priority': parent.get('priority', 'Medium'),
+                    'permissions': parent.get('permissions', []),  # Inherit from parent
+                    'default_flags': parent.get('default_flags', []),
+                    'resolution_times': parent.get('resolution_times'),
+                    'visible_fields': parent.get('visible_fields', []),  # Inherit from parent
                     'parent': parent_name,
                     'children': {},
                     'generated_rights': {}
                 }
                 flat_types.append(full_name)
                 return full_name
-                
+
             elif isinstance(item, dict):
                 # Enhanced dict format with permissions
                 cat_name = item.get('name')
                 if not cat_name:
                     logger.warning("Category dict must have 'name' field")
                     return None
-                
+
                 full_name = f"{parent_name}|{cat_name}" if parent_name else cat_name
-                
-                # Process permissions - handle both dict and list formats
-                permissions = item.get('permissions', parent_info.get('permissions', []) if parent_info else [])
-                # Convert dict format to list format if needed
-                if isinstance(permissions, dict):
-                    permissions = list(permissions.keys())
-                
+
+                # Process permissions
+                permissions = item.get('permissions', parent.get('permissions', []))
+
                 # Process visible_fields with inheritance constraints
                 visible_fields = item.get('visible_fields', [])
                 if visible_fields:
                     # If visible_fields is defined, ensure restricted_read and read permissions exist
-                    if 'restricted_read' not in permissions:
-                        permissions.append('restricted_read')
-                        logger.info(f"Auto-adding 'restricted_read' permission to category '{cat_name}' due to visible_fields")
-                    if 'read' not in permissions:
-                        permissions.append('read')
-                        logger.info(f"Auto-adding 'read' permission to category '{cat_name}' due to visible_fields")
-                    
+                    required_permissions = ['restricted_read', 'read']
+                    for perm in required_permissions:
+                        if perm not in permissions:
+                            permissions.append(perm)
+                            logger.info(f"Auto-adding '{perm}' permission to category '{cat_name}' due to visible_fields")
+
                     # Validate against parent's visible_fields
-                    if parent_info and parent_info.get('visible_fields'):
-                        parent_visible = set(parent_info['visible_fields'])
+                    parent_visible_fields = parent.get('visible_fields')
+                    if parent_visible_fields:
+                        parent_visible = set(parent_visible_fields)
                         child_visible = set(visible_fields)
-                        
+
                         # Check if child tries to expose fields hidden by parent
                         invalid_fields = child_visible - parent_visible
                         if invalid_fields:
@@ -289,24 +297,25 @@ class TicketConfig(AppConfig):
                             # Use intersection to ensure child is subset of parent
                             visible_fields = list(child_visible & parent_visible)
                             item['visible_fields'] = visible_fields
-                elif parent_info and parent_info.get('visible_fields'):
+                elif parent.get('visible_fields'):
                     # Inherit parent's visible_fields if not specified
-                    visible_fields = parent_info['visible_fields'].copy()
-                
+                    visible_fields = parent['visible_fields'].copy()
+
                 # Inherit from parent if not specified
-                priority = item.get('priority', parent_info.get('priority', 'Medium') if parent_info else 'Medium')
-                default_flags = item.get('default_flags', parent_info.get('default_flags', []) if parent_info else [])
+                priority = item.get('priority', parent.get('priority', 'Medium'))
+                default_flags = item.get('default_flags', parent.get('default_flags', []))
                 
                 # Handle resolution_times - inherit from parent if not specified
                 resolution_times = item.get('resolution_times')
-                if not resolution_times and parent_info:
-                    resolution_times = parent_info.get('resolution_times')
+                if not resolution_times:
+                    resolution_times = parent.get('resolution_times')
                 
                 category_info = {
                     'priority': priority,
                     'permissions': permissions,
                     'default_flags': default_flags,
                     'resolution_times': resolution_times,
+                    'visible_fields': visible_fields,
                     'parent': parent_name,
                     'children': {},
                     'generated_rights': {}  # Will be populated by rights generation
@@ -363,12 +372,9 @@ class TicketConfig(AppConfig):
                     logger.warning("Flag dict must have 'name' field")
                     continue
                 
-                # Process permissions - handle both dict and list formats
+                # Process permissions
                 permissions = flag.get('permissions', [])
-                # Convert dict format to list format if needed
-                if isinstance(permissions, dict):
-                    permissions = list(permissions.keys())
-                
+
                 processed_flags[flag_name] = {
                     'priority': flag.get('priority', 'Medium'),
                     'permissions': permissions,
