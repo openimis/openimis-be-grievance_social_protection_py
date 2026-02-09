@@ -14,6 +14,8 @@ from core import prefix_filterset, ExtendedConnection
 from .util import model_obj_to_json
 from .validations import user_associated_with_ticket
 
+RESTRICTED_VALUE = "[Restricted]"
+
 
 def check_ticket_perms(info):
     if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
@@ -68,7 +70,20 @@ class TicketGQLType(DjangoObjectType):
 
         # Check if field is in visible list
         return field_name not in visible_fields
-    
+
+    @staticmethod
+    def _restricted_resolve(root, info, field_name, restricted_value=RESTRICTED_VALUE, preserve_none=False):
+        """Return restricted_value when field is restricted, otherwise return the field value.
+
+        When preserve_none is True, returns None instead of restricted_value if the
+        underlying field is falsy (avoids revealing that a value exists).
+        """
+        if TicketGQLType._should_restrict_field(field_name, root, info):
+            if preserve_none and not getattr(root, field_name):
+                return None
+            return restricted_value
+        return getattr(root, field_name)
+
     @staticmethod
     def resolve_reporter_type(root, info):
         check_ticket_perms(info)
@@ -100,7 +115,7 @@ class TicketGQLType(DjangoObjectType):
     def resolve_reporter_first_name(root, info):
         check_ticket_perms(info)
         if TicketGQLType._should_restrict_field('reporter_first_name', root, info):
-            return "[Restricted]"
+            return RESTRICTED_VALUE
         if root.reporter_type:
             content_type = ContentType.objects.get_for_model(root.reporter_type.model_class())
             if content_type:
@@ -118,7 +133,7 @@ class TicketGQLType(DjangoObjectType):
     def resolve_reporter_last_name(root, info):
         check_ticket_perms(info)
         if TicketGQLType._should_restrict_field('reporter_last_name', root, info):
-            return "[Restricted]"
+            return RESTRICTED_VALUE
         if root.reporter_type:
             content_type = ContentType.objects.get_for_model(root.reporter_type.model_class())
             if content_type:
@@ -150,89 +165,61 @@ class TicketGQLType(DjangoObjectType):
                         return None
         return None
 
-    def resolve_description(self, info):
-        """Return [Restricted] for restricted access"""
-        if TicketGQLType._should_restrict_field('description', self, info):
-            return "[Restricted]"
-        return self.description
+    @staticmethod
+    def resolve_description(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'description')
 
-    def resolve_resolution(self, info):
-        """Return [Restricted] for restricted access"""
-        if TicketGQLType._should_restrict_field('resolution', self, info):
-            return "[Restricted]"
-        return self.resolution
+    @staticmethod
+    def resolve_resolution(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'resolution')
 
-    def resolve_reporter_id(self, info):
-        """Hide reporter_id for restricted access"""
-        if TicketGQLType._should_restrict_field('reporter_id', self, info):
-            return None
-        return self.reporter_id
+    @staticmethod
+    def resolve_reporter_id(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'reporter_id', restricted_value=None)
 
-    def resolve_channel(self, info):
-        """Return [Restricted] for restricted access"""
-        if TicketGQLType._should_restrict_field('channel', self, info):
-            return "[Restricted]"
-        return self.channel
-    
-    def resolve_attending_staff(self, info):
-        """Hide attending_staff for restricted access"""
-        if TicketGQLType._should_restrict_field('attending_staff', self, info):
-            return None
-        return self.attending_staff
-    
-    def resolve_json_ext(self, info):
-        """Hide json_ext for restricted access"""
-        if TicketGQLType._should_restrict_field('json_ext', self, info):
-            return None
-        return self.json_ext
-    
-    def resolve_category(self, info):
-        """Return category value based on visible_fields"""
-        if TicketGQLType._should_restrict_field('category', self, info):
-            return "[Restricted]" if self.category else None
-        return self.category
-    
-    def resolve_flags(self, info):
-        """Return flags value based on visible_fields"""
-        if TicketGQLType._should_restrict_field('flags', self, info):
-            return "[Restricted]" if self.flags else None
-        return self.flags
-    
-    def resolve_title(self, info):
-        """Return title value based on visible_fields"""
-        if TicketGQLType._should_restrict_field('title', self, info):
-            return "[Restricted]" if self.title else None
-        return self.title
-    
-    def resolve_status(self, info):
-        """Status is usually visible for restricted users"""
-        if TicketGQLType._should_restrict_field('status', self, info):
-            return None
-        return self.status
-    
-    def resolve_priority(self, info):
-        """Priority is usually visible for restricted users"""
-        if TicketGQLType._should_restrict_field('priority', self, info):
-            return None
-        return self.priority
-    
-    def resolve_date_created(self, info):
-        """Date created is usually visible for restricted users"""
-        if TicketGQLType._should_restrict_field('date_created', self, info):
-            return None
-        return self.date_created
-    
-    def resolve_date_of_incident(self, info):
-        """Date of incident might be restricted"""
-        if TicketGQLType._should_restrict_field('date_of_incident', self, info):
-            return None
-        return self.date_of_incident
-    
-    def resolve_due_date(self, info):
-        """Due date might be restricted"""
-        if TicketGQLType._should_restrict_field('due_date', self, info):
-            return None
-        return self.due_date
+    @staticmethod
+    def resolve_channel(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'channel')
+
+    @staticmethod
+    def resolve_attending_staff(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'attending_staff', restricted_value=None)
+
+    @staticmethod
+    def resolve_json_ext(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'json_ext', restricted_value=None)
+
+    @staticmethod
+    def resolve_category(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'category', preserve_none=True)
+
+    @staticmethod
+    def resolve_flags(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'flags', preserve_none=True)
+
+    @staticmethod
+    def resolve_title(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'title', preserve_none=True)
+
+    @staticmethod
+    def resolve_status(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'status', restricted_value=None)
+
+    @staticmethod
+    def resolve_priority(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'priority', restricted_value=None)
+
+    @staticmethod
+    def resolve_date_created(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'date_created', restricted_value=None)
+
+    @staticmethod
+    def resolve_date_of_incident(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'date_of_incident', restricted_value=None)
+
+    @staticmethod
+    def resolve_due_date(root, info):
+        return TicketGQLType._restricted_resolve(root, info, 'due_date', restricted_value=None)
     
 
     class Meta:
@@ -462,23 +449,13 @@ class GrievanceTypeConfigurationGQLType(ObjectType):
         return flags
     
     def resolve_grievance_category_staff_roles(self, info):
-        category_staff_role_list = []
-        for category_key, role_ids in TicketConfig.default_attending_staff_role_ids.items():
-            category_staff_role = AttendingStaffRoleGQLType(
-                category=category_key,
-                role_ids=role_ids
-            )
-            category_staff_role_list.append(category_staff_role)
-
-        return category_staff_role_list
+        return [
+            AttendingStaffRoleGQLType(category=category_key, role_ids=role_ids)
+            for category_key, role_ids in TicketConfig.default_attending_staff_role_ids.items()
+        ]
 
     def resolve_grievance_default_resolutions_by_category(self, info):
-        category_resolution_time_list = []
-        for category_key, resolution_time in TicketConfig.default_resolution.items():
-            category_resolution_time = ResolutionTimesByCategoryGQLType(
-                category=category_key,
-                resolution_time=resolution_time
-            )
-            category_resolution_time_list.append(category_resolution_time)
-
-        return category_resolution_time_list
+        return [
+            ResolutionTimesByCategoryGQLType(category=category_key, resolution_time=resolution_time)
+            for category_key, resolution_time in TicketConfig.default_resolution.items()
+        ]

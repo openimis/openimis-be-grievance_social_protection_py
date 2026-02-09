@@ -49,6 +49,15 @@ class TicketService(BaseService):
         self._validate_existing_ticket_access(obj_data, access_type='delete')
         return super().delete(obj_data)
 
+    def _check_access_or_raise(self, category, flags, access_type):
+        """Validate ticket access and convert PermissionDenied to ValidationError"""
+        try:
+            GrievanceAccessControl.validate_ticket_access(
+                self.user, category, flags, access_type
+            )
+        except PermissionDenied as e:
+            raise ValidationError(str(e))
+
     def _validate_existing_ticket_access(self, obj_data, access_type):
         """Validate user has permission for the existing ticket's category and flags"""
         ticket_uuid = obj_data.get('uuid') or obj_data.get('id')
@@ -59,12 +68,7 @@ class TicketService(BaseService):
         if not ticket:
             return
 
-        try:
-            GrievanceAccessControl.validate_ticket_access(
-                self.user, ticket.category, ticket.flags, access_type
-            )
-        except PermissionDenied as e:
-            raise ValidationError(str(e))
+        self._check_access_or_raise(ticket.category, ticket.flags, access_type)
 
     @register_service_signal('ticket_service.reopen_ticket')
     @check_authentication
@@ -111,13 +115,9 @@ class TicketService(BaseService):
     
     def _validate_access_control(self, obj_data, access_type='create'):
         """Validate user has permission to use selected category and flags"""
-        category = obj_data.get('category')
-        flags = obj_data.get('flags')
-
-        try:
-            GrievanceAccessControl.validate_ticket_access(self.user, category, flags, access_type)
-        except PermissionDenied as e:
-            raise ValidationError(str(e))
+        self._check_access_or_raise(
+            obj_data.get('category'), obj_data.get('flags'), access_type
+        )
     
     def _apply_category_defaults(self, obj_data):
         """Apply category defaults (flags, priority) if not already set"""
@@ -130,11 +130,8 @@ class TicketService(BaseService):
         
         # Apply default flags
         default_flags = defaults.get('default_flags', [])
-        if default_flags and not obj_data.get('flags'):
-            obj_data['flags'] = ' '.join(default_flags)
-        elif default_flags and obj_data.get('flags'):
-            # Ensure default flags are included
-            existing_flags = GrievanceAccessControl.parse_flags(obj_data['flags'])
+        if default_flags:
+            existing_flags = GrievanceAccessControl.parse_flags(obj_data.get('flags'))
             for flag in default_flags:
                 if flag not in existing_flags:
                     existing_flags.append(flag)

@@ -1,4 +1,5 @@
 import logging
+import re
 from django.core.exceptions import PermissionDenied
 
 from .apps import TicketConfig
@@ -126,12 +127,11 @@ class GrievanceAccessControl:
 
             if any(check_func(user, name, t) for t in ('create', 'update', 'delete')):
                 return cls.ACCESS_FULL
-            elif check_func(user, name, 'read'):
+            if check_func(user, name, 'read'):
                 return cls.ACCESS_READ
-            elif check_func(user, name, 'restricted_read'):
+            if check_func(user, name, 'restricted_read'):
                 return cls.ACCESS_RESTRICTED
-            else:
-                return cls.ACCESS_NONE
+            return cls.ACCESS_NONE
 
         def min_access_level(levels):
             """Return most restrictive among present levels."""
@@ -182,9 +182,8 @@ class GrievanceAccessControl:
             List of category names the user can access
         """
         all_categories = list(TicketConfig.grievance_types)
-        processed_categories = getattr(TicketConfig, 'processed_categories', {})
 
-        if not processed_categories:
+        if not TicketConfig.processed_categories:
             return all_categories
 
         return [name for name in all_categories if cls.can_view_category(user, name)]
@@ -193,9 +192,8 @@ class GrievanceAccessControl:
     def get_accessible_flags(cls, user):
         """Return list of flags accessible to the user"""
         all_flags = list(TicketConfig.grievance_flags)
-        processed_flags = getattr(TicketConfig, 'processed_flags', {})
 
-        if not processed_flags:
+        if not TicketConfig.processed_flags:
             return all_flags
 
         return [name for name in all_flags if cls.can_view_flag(user, name)]
@@ -234,11 +232,11 @@ class GrievanceAccessControl:
         accessible_categories = cls.get_accessible_categories(user)
 
         # Filter tickets by accessible categories
-        if hasattr(TicketConfig, 'processed_categories') and TicketConfig.processed_categories:
+        if TicketConfig.processed_categories:
             queryset = queryset.filter(category__in=accessible_categories)
 
         # Further filter by flag permissions
-        if hasattr(TicketConfig, 'processed_flags') and TicketConfig.processed_flags:
+        if TicketConfig.processed_flags:
             # Get flags that user cannot access at all
             restricted_flags = [
                 flag_name
@@ -250,7 +248,7 @@ class GrievanceAccessControl:
             # to avoid false positives (e.g., "urgent" matching "not_urgent")
             for flag in restricted_flags:
                 # Match flag as a whole word: at start, end, or surrounded by spaces
-                queryset = queryset.exclude(flags__regex=r'(^|(?<= ))' + flag + r'($|(?= ))')
+                queryset = queryset.exclude(flags__regex=r'(^|(?<= ))' + re.escape(flag) + r'($|(?= ))')
 
         return queryset
 
@@ -258,11 +256,10 @@ class GrievanceAccessControl:
     def get_category_defaults(cls, category_name):
         """Get default flags and priority for a category"""
 
-        processed_categories = getattr(TicketConfig, 'processed_categories', {})
-        if not processed_categories or category_name not in processed_categories:
+        if not TicketConfig.processed_categories or category_name not in TicketConfig.processed_categories:
             return {'priority': 'Medium', 'default_flags': []}
 
-        category_info = processed_categories[category_name]
+        category_info = TicketConfig.processed_categories[category_name]
         return {
             'priority': category_info.get('priority', 'Medium'),
             'default_flags': category_info.get('default_flags', [])
@@ -294,32 +291,27 @@ class GrievanceAccessControl:
         """
 
         priorities = ['Low', 'Medium', 'High', 'Critical']
-        max_priority = 'Medium'  # Default
-        max_priority_index = priorities.index(max_priority)
+        max_idx = priorities.index('Medium')
 
         # Check category priority
-        processed_categories = getattr(TicketConfig, 'processed_categories', {})
-        if processed_categories and category_name in processed_categories:
-            cat_priority = processed_categories[category_name].get('priority', 'Medium')
-            cat_priority_index = cls._get_priority_index(cat_priority, priorities)
-            if cat_priority_index > max_priority_index:
-                max_priority = priorities[cat_priority_index]
-                max_priority_index = cat_priority_index
+        if TicketConfig.processed_categories and category_name in TicketConfig.processed_categories:
+            cat_priority = TicketConfig.processed_categories[category_name].get('priority', 'Medium')
+            cat_idx = cls._get_priority_index(cat_priority, priorities)
+            if cat_idx > max_idx:
+                max_idx = cat_idx
 
         # Check flag priorities
         if flag_names:
-            processed_flags = getattr(TicketConfig, 'processed_flags', {})
             flag_list = cls.parse_flags(flag_names)
 
             for flag_name in flag_list:
-                if processed_flags and flag_name in processed_flags:
-                    flag_priority = processed_flags[flag_name].get('priority', 'Medium')
-                    flag_priority_index = cls._get_priority_index(flag_priority, priorities)
-                    if flag_priority_index > max_priority_index:
-                        max_priority = priorities[flag_priority_index]
-                        max_priority_index = flag_priority_index
+                if TicketConfig.processed_flags and flag_name in TicketConfig.processed_flags:
+                    flag_priority = TicketConfig.processed_flags[flag_name].get('priority', 'Medium')
+                    flag_idx = cls._get_priority_index(flag_priority, priorities)
+                    if flag_idx > max_idx:
+                        max_idx = flag_idx
 
-        return max_priority
+        return priorities[max_idx]
 
     @classmethod
     def get_visible_fields(cls, user, category_name):
@@ -338,7 +330,7 @@ class GrievanceAccessControl:
         access_level = cls.get_user_access_level(user, category_name)
 
         # Full access or no restrictions - all fields visible
-        if access_level == cls.ACCESS_FULL or access_level == cls.ACCESS_READ:
+        if access_level in (cls.ACCESS_FULL, cls.ACCESS_READ):
             return None  # None means all fields visible
 
         # No access - no fields visible
@@ -346,20 +338,16 @@ class GrievanceAccessControl:
             return []
 
         # Restricted access - check visible_fields configuration
-        if access_level == cls.ACCESS_RESTRICTED:
-            processed_categories = getattr(TicketConfig, 'processed_categories', {})
-            if processed_categories and category_name in processed_categories:
-                category_info = processed_categories[category_name]
-                visible_fields = category_info.get('visible_fields', [])
+        if TicketConfig.processed_categories and category_name in TicketConfig.processed_categories:
+            category_info = TicketConfig.processed_categories[category_name]
+            visible_fields = category_info.get('visible_fields', [])
 
-                # If visible_fields is defined, return it
-                if visible_fields:
-                    return visible_fields.copy()
+            # If visible_fields is defined, return it
+            if visible_fields:
+                return visible_fields.copy()
 
-                # If no visible_fields at all, restricted users see basic fields only
-                return ['id', 'status', 'date_created']
-
-        return []
+        # If no visible_fields configured, restricted users see basic fields only
+        return ['id', 'status', 'date_created']
 
     @classmethod
     def filter_fields_for_user(cls, user, category_name, available_fields):
@@ -381,12 +369,7 @@ class GrievanceAccessControl:
             return available_fields
 
         # Filter to only visible fields
-        filtered_fields = {}
-        for field_name, field_config in available_fields.items():
-            if field_name in visible_fields:
-                filtered_fields[field_name] = field_config
-
-        return filtered_fields
+        return {k: v for k, v in available_fields.items() if k in visible_fields}
 
     @classmethod
     def _build_category_dict(cls, name, info, user, parent_info=None, is_child=False):
@@ -410,20 +393,19 @@ class GrievanceAccessControl:
     def get_category_hierarchy(cls, user):
         """Return hierarchical structure of categories accessible to the user"""
 
-        processed_categories = getattr(TicketConfig, 'processed_categories', {})
-        if not processed_categories:
+        if not TicketConfig.processed_categories:
             return [{"name": cat, "children": []} for cat in TicketConfig.grievance_types]
 
         hierarchy = []
 
         # Build hierarchy from processed categories
-        for category_name, category_info in processed_categories.items():
+        for category_name, category_info in TicketConfig.processed_categories.items():
             if not category_info.get('parent'):
                 if cls.can_view_category(user, category_name):
                     category_dict = cls._build_category_dict(category_name, category_info, user)
 
                     # Add accessible children
-                    for child_name, child_info in processed_categories.items():
+                    for child_name, child_info in TicketConfig.processed_categories.items():
                         if child_info.get('parent') == category_name:
                             if cls.can_view_category(user, child_name):  # Has access
                                 child_dict = cls._build_category_dict(child_name, child_info, user, category_info, is_child=True)

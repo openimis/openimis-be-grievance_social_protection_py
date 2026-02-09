@@ -53,15 +53,56 @@ class Command(BaseCommand):
         elif action == 'sync':
             self.sync_permissions(options['dry_run'], options['yes'])
 
+    def _collect_configured_codenames(self):
+        """Collect all permission codenames from the current configuration."""
+        codenames = set()
+
+        for cat_name, cat_info in TicketConfig.processed_categories.items():
+            for perm_type in cat_info.get('permissions', []):
+                codename, _, _ = GrievanceRightsManager._generate_permission_fields(perm_type, cat_name)
+                codenames.add(codename)
+
+        for flag_name, flag_info in TicketConfig.processed_flags.items():
+            for perm_type in flag_info.get('permissions', []):
+                codename, _, _ = GrievanceRightsManager._generate_permission_fields(perm_type, flag_name, is_flag=True)
+                codenames.add(codename)
+
+        return codenames
+
+    def _collect_configured_permissions(self, ct):
+        """Collect configured permissions, split into existing and missing.
+
+        Returns a tuple of (existing_codenames, missing_permissions) where
+        missing_permissions is a list of (codename, name) tuples.
+        """
+        existing = []
+        missing = []
+
+        for cat_name, cat_info in TicketConfig.processed_categories.items():
+            for perm_type in cat_info.get('permissions', []):
+                codename, _, name = GrievanceRightsManager._generate_permission_fields(perm_type, cat_name)
+                if Permission.objects.filter(codename=codename, content_type=ct).exists():
+                    existing.append(codename)
+                else:
+                    missing.append((codename, name))
+
+        for flag_name, flag_info in TicketConfig.processed_flags.items():
+            for perm_type in flag_info.get('permissions', []):
+                codename, _, name = GrievanceRightsManager._generate_permission_fields(perm_type, flag_name, is_flag=True)
+                if Permission.objects.filter(codename=codename, content_type=ct).exists():
+                    existing.append(codename)
+                else:
+                    missing.append((codename, name))
+
+        return existing, missing
+
     def list_permissions(self, format_type):
-        # Get content type for Ticket model
+        """List all grievance permissions."""
         try:
             ct = ContentType.objects.get_for_model(Ticket)
         except Exception as e:
             logger.warning(f"Could not get ContentType for Ticket model: {e}")
             return
-    
-        """List all grievance permissions"""
         perms = Permission.objects.filter(
             content_type=ct,
             codename__endswith='_grievance',
@@ -97,27 +138,8 @@ class Command(BaseCommand):
                 self.stdout.write(f'{perm.id},"{perm.codename}","{perm.name}"')
 
     def cleanup_permissions(self, dry_run, skip_confirmation=False):
-        """Remove orphaned permissions not in current configuration"""
-        # Get current configuration
-        configured_perms = set()
-        
-        # Collect configured category permissions
-        for cat_name, cat_info in TicketConfig.processed_categories.items():
-            perms = cat_info.get('permissions', [])
-            if isinstance(perms, dict):
-                perms = list(perms.keys())
-            for perm_type in perms:
-                codename, _, _ = GrievanceRightsManager._generate_permission_fields(perm_type, cat_name)
-                configured_perms.add(codename)
-        
-        # Collect configured flag permissions
-        for flag_name, flag_info in TicketConfig.processed_flags.items():
-            perms = flag_info.get('permissions', [])
-            if isinstance(perms, dict):
-                perms = list(perms.keys())
-            for perm_type in perms:
-                codename, _, _ = GrievanceRightsManager._generate_permission_fields(perm_type, flag_name, is_flag=True)
-                configured_perms.add(codename)
+        """Remove orphaned permissions not in current configuration."""
+        configured_perms = self._collect_configured_codenames()
         
         # Get content type for Ticket model
         try:
@@ -210,42 +232,13 @@ class Command(BaseCommand):
                     self.stdout.write(f"    {ptype}: {pid}")
 
     def sync_permissions(self, dry_run, skip_confirmation=False):
-        """Sync permissions with current configuration"""
+        """Sync permissions with current configuration."""
         try:
             ct = ContentType.objects.get_for_model(Ticket)
         except Exception as e:
             raise CommandError(f"Could not get ContentType: {e}")
-        
-        created = []
-        existing = []
-        
-        # Check category permissions
-        for cat_name, cat_info in TicketConfig.processed_categories.items():
-            perms = cat_info.get('permissions', [])
-            if isinstance(perms, dict):
-                perms = list(perms.keys())
-            
-            for perm_type in perms:
-                codename, _, name = GrievanceRightsManager._generate_permission_fields(perm_type, cat_name)
-                
-                if Permission.objects.filter(codename=codename, content_type=ct).exists():
-                    existing.append(codename)
-                else:
-                    created.append((codename, name))
-        
-        # Check flag permissions
-        for flag_name, flag_info in TicketConfig.processed_flags.items():
-            perms = flag_info.get('permissions', [])
-            if isinstance(perms, dict):
-                perms = list(perms.keys())
-            
-            for perm_type in perms:
-                codename, _, name = GrievanceRightsManager._generate_permission_fields(perm_type, flag_name, is_flag=True)
-                
-                if Permission.objects.filter(codename=codename, content_type=ct).exists():
-                    existing.append(codename)
-                else:
-                    created.append((codename, name))
+
+        existing, created = self._collect_configured_permissions(ct)
         
         self.stdout.write(f"\nPermission Sync Summary:")
         self.stdout.write(f"  Existing: {len(existing)} permissions")
