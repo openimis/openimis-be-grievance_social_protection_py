@@ -2,11 +2,10 @@ from django.test import TestCase
 from core.models import MutationLog
 from graphene import Schema
 from graphene.test import Client
-from core.test_helpers import create_test_interactive_user
 from grievance_social_protection.models import Ticket
 from grievance_social_protection.schema import Query, Mutation
 from grievance_social_protection.tests.gql_payloads import gql_mutation_update_ticket
-from grievance_social_protection.tests.test_helpers import create_ticket
+from grievance_social_protection.tests.test_helpers import create_ticket, create_test_grievance_user
 from core.models.openimis_graphql_test_case import openIMISGraphQLTestCase, BaseTestContext
 
 
@@ -28,7 +27,7 @@ class GQLTicketUpdateTestCase(openIMISGraphQLTestCase):
     @classmethod
     def setUpClass(cls):
         super(GQLTicketUpdateTestCase, cls).setUpClass()
-        cls.user = create_test_interactive_user(username='user_authorized', roles=[7])
+        cls.user = create_test_grievance_user(username='user_authorized')
         cls.existing_ticket = create_ticket(cls.user)
 
         gql_schema = Schema(
