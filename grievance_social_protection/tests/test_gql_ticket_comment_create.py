@@ -57,10 +57,10 @@ class GQLTicketCommentCreateTestCase(openIMISGraphQLTestCase):
         mutation_log = MutationLog.objects.get(client_mutation_id=mutation_id)
         self.assertFalse(mutation_log.error)
         comment = Comment.objects.get(ticket_id=self.existing_ticket.id)
-        self.assertEquals(comment.ticket.id, self.existing_ticket.id)
-        self.assertEquals(comment.comment, self.comment)
-        self.assertEquals(comment.commenter_id, str(self.individual.id))
-        self.assertEquals(comment.is_resolution, False)
+        self.assertEqual(comment.ticket.id, self.existing_ticket.id)
+        self.assertEqual(comment.comment, self.comment)
+        self.assertEqual(comment.commenter_id, str(self.individual.id))
+        self.assertEqual(comment.is_resolution, False)
         self.assertIn(self.type, str(comment.commenter_type))
 
     def test_create_comment_anonymous_user_success(self):
@@ -75,11 +75,11 @@ class GQLTicketCommentCreateTestCase(openIMISGraphQLTestCase):
         mutation_log = MutationLog.objects.get(client_mutation_id=mutation_id)
         self.assertFalse(mutation_log.error)
         comment = Comment.objects.get(ticket_id=self.existing_ticket.id)
-        self.assertEquals(comment.ticket.id, self.existing_ticket.id)
-        self.assertEquals(comment.comment, self.comment)
-        self.assertEquals(comment.commenter_id, None)
-        self.assertEquals(comment.is_resolution, False)
-        self.assertEquals(comment.commenter_type, None)
+        self.assertEqual(comment.ticket.id, self.existing_ticket.id)
+        self.assertEqual(comment.comment, self.comment)
+        self.assertEqual(comment.commenter_id, None)
+        self.assertEqual(comment.is_resolution, False)
+        self.assertEqual(comment.commenter_type, None)
 
     @classmethod
     def __create_individual(cls):

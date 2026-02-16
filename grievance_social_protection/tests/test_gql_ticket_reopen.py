@@ -49,8 +49,8 @@ class GQLTicketReopenTestCase(openIMISGraphQLTestCase):
 
     def test_reopen_ticket_success(self):
         mutation_id = "12j123h5g42h04xc66"
-        self.assertEquals(self.existing_ticket.status, self.status_before_reopening)
-        self.assertEquals(self.existing_comment.is_resolution, True)
+        self.assertEqual(self.existing_ticket.status, self.status_before_reopening)
+        self.assertEqual(self.existing_comment.is_resolution, True)
         payload = gql_mutation_reopen_ticket % (
             self.existing_ticket.id,
             mutation_id
@@ -61,5 +61,5 @@ class GQLTicketReopenTestCase(openIMISGraphQLTestCase):
         self.assertFalse(mutation_log.error)
         ticket = Ticket.objects.get(id=self.existing_ticket.id)
         comment = Comment.objects.get(ticket_id=self.existing_ticket.id)
-        self.assertEquals(comment.is_resolution, False)
-        self.assertEquals(ticket.status, self.status)
+        self.assertEqual(comment.is_resolution, False)
+        self.assertEqual(ticket.status, self.status)
