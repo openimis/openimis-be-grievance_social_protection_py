@@ -14,6 +14,7 @@ class GrievanceAccessControl:
     1. Categories/flags can have permissions that generate automatic rights
     2. Users need specific rights to access categories/flags
     3. Restricted view shows limited information based on restricted_read right
+    4. Unconfigured standard permission types fall back to the module's existing role-based permissions
     """
 
     # Access level constants
@@ -21,6 +22,16 @@ class GrievanceAccessControl:
     ACCESS_RESTRICTED = 'restricted'
     ACCESS_READ = 'read'
     ACCESS_FULL = 'full'
+
+    # Fallback to the module's standard ticket permissions when a category/flag
+    # has generated_rights but the specific permission type is not among them.
+    # Unconfigured standard types defer to the existing role-based permissions.
+    _DEFAULT_PERM_FALLBACK = {
+        'read': 'gql_query_tickets_perms',
+        'create': 'gql_mutation_create_tickets_perms',
+        'update': 'gql_mutation_update_tickets_perms',
+        'delete': 'gql_mutation_delete_tickets_perms',
+    }
 
     @staticmethod
     def parse_flags(flags):
@@ -39,7 +50,7 @@ class GrievanceAccessControl:
         Args:
             user: Django user object
             name: Category or flag name
-            access_type: Type of access ('restricted_read', 'read', 'write', 'update')
+            access_type: Type of access ('restricted_read', 'read', 'create', 'update', 'delete')
             config_attr: 'processed_categories' or 'processed_flags'
 
         Returns:
@@ -63,8 +74,29 @@ class GrievanceAccessControl:
         required_right = generated_rights.get(access_type)
 
         if not required_right:
-            # No restriction configured for this access type - allow access
-            return True
+            # Permission type not configured — fall back to default core
+            # ticket permissions for standard types (read/create/update/delete).
+            # Grievance-specific types like restricted_read have no fallback.
+            fallback_attr = cls._DEFAULT_PERM_FALLBACK.get(access_type)
+            if not fallback_attr:
+                if access_type not in ('restricted_read',):
+                    logger.warning(
+                        "No fallback permission for access_type='%s' "
+                        "(name=%s, config_attr=%s). Denying access.",
+                        access_type, name, config_attr
+                    )
+                return False
+            default_perms = getattr(TicketConfig, fallback_attr, None)
+            if default_perms is None:
+                logger.error(
+                    "TicketConfig missing attribute '%s' for fallback "
+                    "permission check (access_type=%s, name=%s). Denying access.",
+                    fallback_attr, access_type, name
+                )
+                return False
+            if not default_perms:
+                return False
+            return user.has_perms(default_perms)
 
         return user.has_perm(str(required_right))
 

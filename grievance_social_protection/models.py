@@ -5,7 +5,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from graphql import ResolveInfo
 
-import core
 from core import models as core_models
 from core.models import HistoryBusinessModel, User, HistoryModel
 from .access_control import GrievanceAccessControl
@@ -69,7 +68,7 @@ class Ticket(HistoryBusinessModel):
     def filter_queryset(cls, queryset=None):
         if queryset is None:
             queryset = cls.objects.all()
-        queryset = queryset.filter(*core.filter_validity())
+        queryset = queryset.filter(is_deleted=False, date_valid_to__isnull=True)
         return queryset
 
     @classmethod

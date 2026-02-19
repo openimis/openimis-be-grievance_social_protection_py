@@ -442,12 +442,14 @@ class TestGenerateAutomaticRights(TestCase):
 
     def test_reuses_existing_permissions(self):
         """Test that existing permissions are reused instead of creating duplicates"""
-        # First, create a permission manually
-        existing_perm = Permission.objects.create(
+        # First, create a permission manually (use update_or_create for --keepdb safety)
+        existing_perm, _ = Permission.objects.update_or_create(
             id=127100,
-            codename='read_existing_cat_grievance',
-            name='Can read existing_cat tickets',
-            content_type=self.ct
+            defaults={
+                'codename': 'read_existing_cat_grievance',
+                'name': 'Can read existing_cat tickets',
+                'content_type': self.ct
+            }
         )
 
         app_config = self._create_app_config()
@@ -548,8 +550,8 @@ class TestGenerateAutomaticRights(TestCase):
 
         self.assertNotEqual(id_one, id_two)
 
-    def test_updates_default_cfg(self):
-        """Test that DEFAULT_CFG is updated with generated rights"""
+    def test_sets_rights_as_app_config_attribute(self):
+        """Test that generated rights are set as attributes on app_config"""
         app_config = self._create_app_config()
         app_config.processed_categories = {
             'cfg_test': {
@@ -563,8 +565,8 @@ class TestGenerateAutomaticRights(TestCase):
 
         GrievanceRightsManager.generate_automatic_rights(app_config)
 
-        # Verify the right was added to DEFAULT_CFG
-        self.assertIn(expected_key, DEFAULT_CFG)
+        # Verify the right was set as attribute on app_config
+        self.assertTrue(hasattr(app_config, expected_key))
 
     def test_handles_mixed_categories_and_flags(self):
         """Test processing both categories and flags together"""
@@ -635,6 +637,10 @@ class TestProcessPermissions(TestCase):
     def setUp(self):
         """Set up test fixtures"""
         self.ct = ContentType.objects.get_for_model(Ticket)
+        # Pre-populate used_ids from DB for --keepdb safety
+        self.db_used_ids = set(Permission.objects.filter(
+            id__range=(GrievanceRightsManager.GRIEVANCE_RIGHT_BASE, GrievanceRightsManager.GRIEVANCE_RIGHT_MAX)
+        ).values_list('id', flat=True))
 
     def tearDown(self):
         """Clean up created test permissions"""
@@ -651,7 +657,7 @@ class TestProcessPermissions(TestCase):
             'generated_rights': {}
         }
         existing_by_codename = {}
-        used_ids = set()
+        used_ids = self.db_used_ids.copy()
         all_rights = {}
 
         GrievanceRightsManager._process_permissions(
@@ -674,7 +680,7 @@ class TestProcessPermissions(TestCase):
             'generated_rights': {}
         }
         existing_by_codename = {}
-        used_ids = set()
+        used_ids = self.db_used_ids.copy()
         all_rights = {}
 
         GrievanceRightsManager._process_permissions(
@@ -692,7 +698,7 @@ class TestProcessPermissions(TestCase):
             'generated_rights': {}
         }
         existing_by_codename = {}
-        used_ids = set()
+        used_ids = self.db_used_ids.copy()
         all_rights = {}
 
         GrievanceRightsManager._process_permissions(
@@ -700,18 +706,20 @@ class TestProcessPermissions(TestCase):
             existing_by_codename, used_ids, self.ct, all_rights
         )
 
-        # generated_rights should not be added since permissions is empty
-        self.assertNotIn('generated_rights', item_info)
+        # generated_rights should be empty since permissions is empty
+        self.assertEqual(item_info['generated_rights'], {})
         self.assertEqual(len(all_rights), 0)
 
     def test_reuses_existing_permission(self):
         """Test that existing permissions are reused"""
-        # Create existing permission
-        existing_perm = Permission.objects.create(
+        # Create existing permission (use update_or_create for --keepdb safety)
+        existing_perm, _ = Permission.objects.update_or_create(
             id=127150,
-            codename='read_reuse_test_grievance',
-            name='Can read reuse_test tickets',
-            content_type=self.ct
+            defaults={
+                'codename': 'read_reuse_test_grievance',
+                'name': 'Can read reuse_test tickets',
+                'content_type': self.ct
+            }
         )
 
         item_info = {
@@ -719,7 +727,7 @@ class TestProcessPermissions(TestCase):
             'generated_rights': {}
         }
         existing_by_codename = {'read_reuse_test_grievance': existing_perm}
-        used_ids = {127150}
+        used_ids = self.db_used_ids | {127150}
         all_rights = {}
 
         GrievanceRightsManager._process_permissions(
@@ -737,7 +745,8 @@ class TestProcessPermissions(TestCase):
             'generated_rights': {}
         }
         existing_by_codename = {}
-        used_ids = set()
+        used_ids = self.db_used_ids.copy()
+        initial_count = len(used_ids)
         all_rights = {}
 
         GrievanceRightsManager._process_permissions(
@@ -745,7 +754,7 @@ class TestProcessPermissions(TestCase):
             existing_by_codename, used_ids, self.ct, all_rights
         )
 
-        # used_ids should now contain the new ID
-        self.assertGreater(len(used_ids), 0)
+        # used_ids should now contain more IDs than before
+        self.assertGreater(len(used_ids), initial_count)
         new_id = item_info['generated_rights']['read']
         self.assertIn(new_id, used_ids)

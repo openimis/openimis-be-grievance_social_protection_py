@@ -1,4 +1,8 @@
+import logging
+
 import graphene
+import django_filters
+from django.db import models
 from graphene import ObjectType
 from graphene_django import DjangoObjectType
 from django.contrib.contenttypes.models import ContentType
@@ -14,7 +18,107 @@ from core import prefix_filterset, ExtendedConnection
 from .util import model_obj_to_json
 from .validations import user_associated_with_ticket
 
+logger = logging.getLogger(__name__)
+
 RESTRICTED_VALUE = "[Restricted]"
+
+# Fields that are always safe to filter on regardless of access level
+_ALWAYS_FILTERABLE = frozenset({'id', 'version'})
+
+# Shared filter field definitions used by TicketFilterSet and CommentGQLType
+TICKET_FILTER_FIELDS = {
+    "id": ["exact", "isnull"],
+    "version": ["exact"],
+    "key": ["exact", "istartswith", "icontains", "iexact"],
+    "code": ["exact", "istartswith", "icontains", "iexact"],
+    "title": ["exact", "istartswith", "icontains", "iexact"],
+    "description": ["exact", "istartswith", "icontains", "iexact"],
+    "status": ["exact", "istartswith", "icontains", "iexact"],
+    "priority": ["exact", "istartswith", "icontains", "iexact"],
+    "category": ["exact", "istartswith", "icontains", "iexact"],
+    "flags": ["exact", "istartswith", "icontains", "iexact"],
+    "channel": ["exact", "istartswith", "icontains", "iexact"],
+    "resolution": ["exact", "istartswith", "icontains", "iexact"],
+    'reporter_id': ["exact"],
+    "due_date": ["exact", "istartswith", "icontains", "iexact"],
+    "date_of_incident": ["exact", "istartswith", "icontains", "iexact"],
+    "date_created": ["exact", "istartswith", "icontains", "iexact"],
+    **prefix_filterset("attending_staff__", UserGQLType._meta.filter_fields),
+}
+
+
+class TicketFilterSet(django_filters.FilterSet):
+    """Custom FilterSet that enforces field-level filter restrictions.
+
+    Users with restricted_read access to a category can only filter on
+    fields listed in their visible_fields configuration. This prevents
+    information inference attacks via filter parameters.
+    """
+
+    class Meta:
+        model = Ticket
+        fields = TICKET_FILTER_FIELDS
+
+    def filter_queryset(self, queryset):
+        """Override to skip filters on fields the user cannot see."""
+        user = getattr(self.request, 'user', None) if self.request else None
+        restricted = self._get_restricted_fields(user)
+
+        for name, value in self.form.cleaned_data.items():
+            filter_obj = self.filters.get(name)
+            if not filter_obj:
+                continue
+            # Skip null/empty values (matches django-filter base behavior)
+            if value is None:
+                continue
+            base_field = filter_obj.field_name.split('__')[0]
+            if base_field in restricted:
+                logger.info(
+                    "User %s blocked from filtering on restricted field '%s'",
+                    getattr(user, 'username', '?'), base_field
+                )
+                continue
+            queryset = filter_obj.filter(queryset, value)
+            assert isinstance(queryset, models.QuerySet), (
+                "Expected '%s.%s' to return a QuerySet, but got a %s instead."
+                % (type(self).__name__, name, type(queryset).__name__)
+            )
+        return queryset
+
+    @staticmethod
+    def _get_restricted_fields(user):
+        """Get fields that should not be filterable for this user.
+
+        If the user has restricted_read access to ANY accessible category,
+        fields not in that category's visible_fields are blocked from filtering.
+        Because restrictions are accumulated across all categories via set union,
+        a field blocked in any one restricted category is blocked everywhere.
+
+        Anonymous/unauthenticated users are blocked from filtering on all fields
+        as defense-in-depth (check_ticket_perms should block them upstream).
+        """
+        if not user or user.is_anonymous:
+            # Block all filterable fields — anonymous users should not reach
+            # this point (check_ticket_perms gates upstream), but if they do,
+            # deny all filtering rather than allowing it.
+            return set(TicketFilterSet.Meta.fields.keys()) - _ALWAYS_FILTERABLE
+
+        restricted = set()
+        processed_categories = TicketConfig.processed_categories
+
+        if not processed_categories:
+            return restricted
+
+        all_filterable = set(TicketFilterSet.Meta.fields.keys()) - _ALWAYS_FILTERABLE
+
+        for cat_name in processed_categories:
+            visible_fields = GrievanceAccessControl.get_visible_fields(user, cat_name)
+            # visible_fields is None for full/read access, [] for no access,
+            # or a list of field names for restricted access
+            if visible_fields is not None and visible_fields:
+                restricted |= all_filterable - set(visible_fields)
+
+        return restricted
 
 
 def check_ticket_perms(info):
@@ -225,28 +329,10 @@ class TicketGQLType(DjangoObjectType):
     class Meta:
         model = Ticket
         interfaces = (graphene.relay.Node,)
-        # SECURITY NOTE: These filter fields are static and don't respect field-level permissions.
-        # Users with restricted access can still filter by these fields even if they can't see the values.
-        # TODO: Implement dynamic filter removal based on user's visible_fields configuration
-        filter_fields = {
-            "id": ["exact", "isnull"],
-            "version": ["exact"],
-            "key": ["exact", "istartswith", "icontains", "iexact"],
-            "code": ["exact", "istartswith", "icontains", "iexact"],
-            "title": ["exact", "istartswith", "icontains", "iexact"],
-            "description": ["exact", "istartswith", "icontains", "iexact"],
-            "status": ["exact", "istartswith", "icontains", "iexact"],
-            "priority": ["exact", "istartswith", "icontains", "iexact"],
-            "category": ["exact", "istartswith", "icontains", "iexact"],
-            "flags": ["exact", "istartswith", "icontains", "iexact"],
-            "channel": ["exact", "istartswith", "icontains", "iexact"],
-            "resolution": ["exact", "istartswith", "icontains", "iexact"],
-            'reporter_id': ["exact"],
-            "due_date": ["exact", "istartswith", "icontains", "iexact"],
-            "date_of_incident": ["exact", "istartswith", "icontains", "iexact"],
-            "date_created": ["exact", "istartswith", "icontains", "iexact"],
-            **prefix_filterset("attending_staff__", UserGQLType._meta.filter_fields),
-        }
+        # TicketFilterSet enforces field-level filter restrictions:
+        # users with restricted_read access cannot filter on fields
+        # outside their visible_fields configuration.
+        filterset_class = TicketFilterSet
 
         connection_class = ExtendedConnection
 
@@ -336,7 +422,7 @@ class CommentGQLType(DjangoObjectType):
             "comment": ["exact", "istartswith", "icontains", "iexact"],
             "date_created": ["exact", "istartswith", "icontains", "iexact"],
             "is_resolution": ["exact"],
-            **prefix_filterset("ticket__", TicketGQLType._meta.filter_fields),
+            **prefix_filterset("ticket__", TICKET_FILTER_FIELDS),
         }
 
         connection_class = ExtendedConnection
@@ -351,7 +437,7 @@ class CommentGQLType(DjangoObjectType):
 #             "filename": ["exact", "icontains"],
 #             "mime_type": ["exact", "icontains"],
 #             "url": ["exact", "icontains"],
-#             **prefix_filterset("ticket__", TicketGQLType._meta.filter_fields),
+#             **prefix_filterset("ticket__", TICKET_FILTER_FIELDS),
 #         }
 #         connection_class = ExtendedConnection
 #
