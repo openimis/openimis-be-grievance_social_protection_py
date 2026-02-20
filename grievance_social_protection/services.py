@@ -80,7 +80,7 @@ class TicketService(BaseService):
                 ticket = Ticket.objects.filter(id=ticket_id).first()
                 ticket.status = Ticket.TicketStatus.OPEN
                 self._check_if_comment_resolution(ticket_id)
-                ticket.save(username=self.user.username)
+                ticket.save(user=self.user)
                 return {
                     "success": True,
                     "message": "Ok",
@@ -95,7 +95,7 @@ class TicketService(BaseService):
         if comment_queryset.exists():
             comment = comment_queryset.first()
             comment.is_resolution = False
-            comment.save(username=self.user.username)
+            comment.save(user=self.user)
 
     def _get_content_type(self, obj_data):
         if 'reporter_type' in obj_data:
@@ -182,7 +182,7 @@ class CommentService:
             comment_ids.append(comment_id)
             json_ext['comment_ids'] = comment_ids
             ticket.json_ext = json_ext
-            ticket.save(username=self.user.username)
+            ticket.save(user=self.user)
 
     @register_service_signal('comment_service.resolve_grievance_by_comment')
     @check_authentication
@@ -194,8 +194,8 @@ class CommentService:
                 ticket = comment.ticket
                 ticket.status = Ticket.TicketStatus.CLOSED
                 comment.is_resolution = True
-                ticket.save(username=self.user.username)
-                comment.save(username=self.user.username)
+                ticket.save(user=self.user)
+                comment.save(user=self.user)
                 return {
                     "success": True,
                     "message": "Ok",
@@ -205,7 +205,7 @@ class CommentService:
             return output_exception(model_name=self.OBJECT_TYPE.__name__, method="resolve_grievance_by_comment", exception=exc)
 
     def save_instance(self, obj_):
-        obj_.save(username=self.user.username)
+        obj_.save(user=self.user)
         dict_repr = model_representation(obj_)
         return output_result_success(dict_representation=dict_repr)
 

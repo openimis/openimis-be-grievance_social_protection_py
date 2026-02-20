@@ -2,10 +2,10 @@ from django.test import TestCase
 from core.models import MutationLog
 from graphene import Schema
 from graphene.test import Client
-from core.test_helpers import create_test_interactive_user
 from grievance_social_protection.models import Ticket
 from grievance_social_protection.schema import Query, Mutation
 from grievance_social_protection.tests.gql_payloads import gql_mutation_create_ticket
+from grievance_social_protection.tests.test_helpers import create_test_grievance_user
 from core.models.openimis_graphql_test_case import openIMISGraphQLTestCase, BaseTestContext
 
 
@@ -25,7 +25,7 @@ class GQLTicketCreateTestCase(openIMISGraphQLTestCase):
     @classmethod
     def setUpClass(cls):
         super(GQLTicketCreateTestCase, cls).setUpClass()
-        cls.user = create_test_interactive_user(username='user_authorized', roles=[7])
+        cls.user = create_test_grievance_user(username='user_authorized')
 
         gql_schema = Schema(
             query=Query,
@@ -60,14 +60,14 @@ class GQLTicketCreateTestCase(openIMISGraphQLTestCase):
         mutation_log = MutationLog.objects.get(client_mutation_id=mutation_id)
         self.assertFalse(mutation_log.error)
         tickets = Ticket.objects.filter(title=self.title)
-        self.assertEquals(tickets.count(), 1)
+        self.assertEqual(tickets.count(), 1)
         ticket = tickets.first()
-        self.assertEquals(ticket.title, self.title)
-        self.assertEquals(ticket.category, self.category)
-        self.assertEquals(ticket.resolution, self.resolution)
-        self.assertEquals(ticket.priority, self.priority)
-        self.assertEquals(str(ticket.date_of_incident), self.date_of_incident)
-        self.assertEquals(ticket.flags, self.flags)
+        self.assertEqual(ticket.title, self.title)
+        self.assertEqual(ticket.category, self.category)
+        self.assertEqual(ticket.resolution, self.resolution)
+        self.assertEqual(ticket.priority, self.priority)
+        self.assertEqual(str(ticket.date_of_incident), self.date_of_incident)
+        self.assertEqual(ticket.flags, self.flags)
 
     def test_create_ticket_false_invalid_resolution_format(self):
         mutation_id = "65g453h4g92h04gh98"
@@ -86,7 +86,7 @@ class GQLTicketCreateTestCase(openIMISGraphQLTestCase):
         mutation_log = MutationLog.objects.get(client_mutation_id=mutation_id)
         self.assertTrue(mutation_log.error)
         tickets = Ticket.objects.filter(title=self.title)
-        self.assertEquals(tickets.count(), 0)
+        self.assertEqual(tickets.count(), 0)
 
     def test_create_ticket_false_invalid_resolution_day_format(self):
         mutation_id = "62g453h4g92h04gh90"
@@ -105,7 +105,7 @@ class GQLTicketCreateTestCase(openIMISGraphQLTestCase):
         mutation_log = MutationLog.objects.get(client_mutation_id=mutation_id)
         self.assertTrue(mutation_log.error)
         tickets = Ticket.objects.filter(title=self.title)
-        self.assertEquals(tickets.count(), 0)
+        self.assertEqual(tickets.count(), 0)
 
     def test_create_ticket_false_invalid_resolution_hour_format(self):
         mutation_id = "15g453h4g92h04gh92"
@@ -124,4 +124,4 @@ class GQLTicketCreateTestCase(openIMISGraphQLTestCase):
         mutation_log = MutationLog.objects.get(client_mutation_id=mutation_id)
         self.assertTrue(mutation_log.error)
         tickets = Ticket.objects.filter(title=self.title)
-        self.assertEquals(tickets.count(), 0)
+        self.assertEqual(tickets.count(), 0)
