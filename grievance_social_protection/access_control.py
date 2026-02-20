@@ -379,7 +379,7 @@ class GrievanceAccessControl:
                 return visible_fields.copy()
 
         # If no visible_fields configured, restricted users see basic fields only
-        return ['id', 'status', 'date_created']
+        return ['id', 'status', 'category', 'priority', 'date_created']
 
     @classmethod
     def filter_fields_for_user(cls, user, category_name, available_fields):

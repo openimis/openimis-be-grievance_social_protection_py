@@ -111,7 +111,7 @@ The grievance module automatically generates permission IDs using Django's auth_
 3. **Access Levels** (based on user's rights):
    - **Restricted Access** (`restricted_read` right): 
      - If `visible_fields` is configured: Users see only fields listed in `visible_fields`
-     - If `visible_fields` is not configured: Users see only basic info (id, status, dates, category, priority)
+     - If `visible_fields` is not configured: Users see only basic info (id, status, category, priority, date_created)
      - Non-visible fields show as "[Restricted]" for text fields or null for other types
      - Can only filter queries on visible fields
    - **Read Access** (`read` right): 
