@@ -26,7 +26,7 @@ class TicketService(BaseService):
     def create(self, obj_data):
         self._get_content_type(obj_data)
         self._generate_code(obj_data)
-        self._validate_access_control(obj_data, access_type='create')
+        self._validate_access_control(obj_data, access_type=GrievanceAccessControl.PERM_CREATE)
         self._apply_category_defaults(obj_data)
         resolution_error = validate_resolution(obj_data)
         if resolution_error:
@@ -36,8 +36,8 @@ class TicketService(BaseService):
     @register_service_signal('ticket_service.update')
     def update(self, obj_data):
         self._get_content_type(obj_data)
-        self._validate_existing_ticket_access(obj_data, access_type='update')
-        self._validate_access_control(obj_data, access_type='update')
+        self._validate_existing_ticket_access(obj_data, access_type=GrievanceAccessControl.PERM_UPDATE)
+        self._validate_access_control(obj_data, access_type=GrievanceAccessControl.PERM_UPDATE)
         self._apply_category_defaults(obj_data)
         resolution_error = validate_resolution(obj_data)
         if resolution_error:
@@ -46,7 +46,7 @@ class TicketService(BaseService):
 
     @register_service_signal('ticket_service.delete')
     def delete(self, obj_data):
-        self._validate_existing_ticket_access(obj_data, access_type='delete')
+        self._validate_existing_ticket_access(obj_data, access_type=GrievanceAccessControl.PERM_DELETE)
         return super().delete(obj_data)
 
     def _check_access_or_raise(self, category, flags, access_type):
@@ -113,7 +113,7 @@ class TicketService(BaseService):
             new_ticket_code = f'GRS{last_ticket_code_numeric + 1:08}'
             obj_data['code'] = new_ticket_code
     
-    def _validate_access_control(self, obj_data, access_type='create'):
+    def _validate_access_control(self, obj_data, access_type=GrievanceAccessControl.PERM_CREATE):
         """Validate user has permission to use selected category and flags"""
         self._check_access_or_raise(
             obj_data.get('category'), obj_data.get('flags'), access_type

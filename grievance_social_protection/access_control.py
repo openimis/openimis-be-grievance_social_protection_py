@@ -23,14 +23,21 @@ class GrievanceAccessControl:
     ACCESS_READ = 'read'
     ACCESS_FULL = 'full'
 
+    # Permission type constants
+    PERM_RESTRICTED_READ = 'restricted_read'
+    PERM_READ = 'read'
+    PERM_CREATE = 'create'
+    PERM_UPDATE = 'update'
+    PERM_DELETE = 'delete'
+
     # Fallback to the module's standard ticket permissions when a category/flag
     # has generated_rights but the specific permission type is not among them.
     # Unconfigured standard types defer to the existing role-based permissions.
     _DEFAULT_PERM_FALLBACK = {
-        'read': 'gql_query_tickets_perms',
-        'create': 'gql_mutation_create_tickets_perms',
-        'update': 'gql_mutation_update_tickets_perms',
-        'delete': 'gql_mutation_delete_tickets_perms',
+        PERM_READ: 'gql_query_tickets_perms',
+        PERM_CREATE: 'gql_mutation_create_tickets_perms',
+        PERM_UPDATE: 'gql_mutation_update_tickets_perms',
+        PERM_DELETE: 'gql_mutation_delete_tickets_perms',
     }
 
     @staticmethod
@@ -79,7 +86,7 @@ class GrievanceAccessControl:
             # Grievance-specific types like restricted_read have no fallback.
             fallback_attr = cls._DEFAULT_PERM_FALLBACK.get(access_type)
             if not fallback_attr:
-                if access_type not in ('restricted_read',):
+                if access_type not in (cls.PERM_RESTRICTED_READ,):
                     logger.warning(
                         "No fallback permission for access_type='%s' "
                         "(name=%s, config_attr=%s). Denying access.",
@@ -101,24 +108,24 @@ class GrievanceAccessControl:
         return user.has_perm(str(required_right))
 
     @classmethod
-    def check_category_access(cls, user, category_name, access_type='read'):
+    def check_category_access(cls, user, category_name, access_type=PERM_READ):
         return cls._check_access(user, category_name, access_type, 'processed_categories')
 
     @classmethod
-    def check_flag_access(cls, user, flag_name, access_type='read'):
+    def check_flag_access(cls, user, flag_name, access_type=PERM_READ):
         return cls._check_access(user, flag_name, access_type, 'processed_flags')
 
     @classmethod
     def can_view_category(cls, user, category_name):
         """Check if user can view a category (has either read or restricted_read access)"""
-        return (cls.check_category_access(user, category_name, 'read') or
-                cls.check_category_access(user, category_name, 'restricted_read'))
+        return (cls.check_category_access(user, category_name, cls.PERM_READ) or
+                cls.check_category_access(user, category_name, cls.PERM_RESTRICTED_READ))
 
     @classmethod
     def can_view_flag(cls, user, flag_name):
         """Check if user can view a flag (has either read or restricted_read access)"""
-        return (cls.check_flag_access(user, flag_name, 'read') or
-                cls.check_flag_access(user, flag_name, 'restricted_read'))
+        return (cls.check_flag_access(user, flag_name, cls.PERM_READ) or
+                cls.check_flag_access(user, flag_name, cls.PERM_RESTRICTED_READ))
 
     @classmethod
     def _has_restrictions(cls, name, config_attr):
@@ -157,11 +164,11 @@ class GrievanceAccessControl:
             if not has_restrictions_func(name):
                 return None  # No restrictions
 
-            if any(check_func(user, name, t) for t in ('create', 'update', 'delete')):
+            if any(check_func(user, name, t) for t in (cls.PERM_CREATE, cls.PERM_UPDATE, cls.PERM_DELETE)):
                 return cls.ACCESS_FULL
-            if check_func(user, name, 'read'):
+            if check_func(user, name, cls.PERM_READ):
                 return cls.ACCESS_READ
-            if check_func(user, name, 'restricted_read'):
+            if check_func(user, name, cls.PERM_RESTRICTED_READ):
                 return cls.ACCESS_RESTRICTED
             return cls.ACCESS_NONE
 
@@ -231,7 +238,7 @@ class GrievanceAccessControl:
         return [name for name in all_flags if cls.can_view_flag(user, name)]
 
     @classmethod
-    def validate_ticket_access(cls, user, category, flags=None, access_type='create'):
+    def validate_ticket_access(cls, user, category, flags=None, access_type=PERM_CREATE):
         """
         Validate if user can perform action on ticket with given category and flags.
         Raises PermissionDenied if access is not allowed.
@@ -415,7 +422,7 @@ class GrievanceAccessControl:
         }
 
         if is_child:
-            base_dict['full_name'] = name
+            base_dict['full_name'] = name.replace('|', ' ')
         else:
             base_dict['children'] = []
 

@@ -242,6 +242,6 @@ class GrievanceRightsManager:
         
         # Generate final codename and permission name with truncation
         codename = cls.truncate_with_template(codename_template, safe_name, cls.CODENAME_MAX_LENGTH)
-        permission_name = cls.truncate_with_template(name_template, cls.clean_name(original_name), cls.PERMISSION_NAME_MAX_LENGTH)
+        permission_name = cls.truncate_with_template(name_template, cls.clean_name(original_name).replace('|', ' '), cls.PERMISSION_NAME_MAX_LENGTH)
         
         return codename, permission_name, right_name

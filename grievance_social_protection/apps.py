@@ -263,7 +263,7 @@ class TicketConfig(AppConfig):
                     raise ValueError("Each category dict in 'grievance_types' must have a 'name' field.")
 
 
-                full_name = f"{parent_name} {cat_name}" if parent_name else cat_name
+                full_name = f"{parent_name}|{cat_name}" if parent_name else cat_name
 
                 # Process permissions
                 permissions = item.get('permissions', parent.get('permissions', []))
