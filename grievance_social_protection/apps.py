@@ -143,13 +143,10 @@ class TicketConfig(AppConfig):
             for key in dict_field:
                 value = dict_field[key]
                 if value in ['', None]:
-                    resolution_times = cfg.get("resolution_times", DEFAULT_TIME_RESOLUTION)
-                    logger.warning(
-                        '"%s" has no value for resolution. The default one is taken as "%s".',
-                        key,
-                        resolution_times
+                    raise ValueError(
+                        f"'{key}' in 'default_resolution' has no value. "
+                        f"Expected format: 'days,hours' (e.g. '{DEFAULT_TIME_RESOLUTION}')."
                     )
-                    dict_field[key] = resolution_times
                 else:
                     cls.__validate_resolution_time_format(value, f"default_resolution[{key}]")
         
@@ -263,10 +260,10 @@ class TicketConfig(AppConfig):
                 # Enhanced dict format with permissions
                 cat_name = item.get('name')
                 if not cat_name:
-                    logger.warning("Category dict must have 'name' field")
-                    return None
+                    raise ValueError("Each category dict in 'grievance_types' must have a 'name' field.")
 
-                full_name = f"{parent_name}|{cat_name}" if parent_name else cat_name
+
+                full_name = f"{parent_name} {cat_name}" if parent_name else cat_name
 
                 # Process permissions
                 permissions = item.get('permissions', parent.get('permissions', []))
@@ -290,13 +287,10 @@ class TicketConfig(AppConfig):
                         # Check if child tries to expose fields hidden by parent
                         invalid_fields = child_visible - parent_visible
                         if invalid_fields:
-                            logger.warning(
-                                f"Category '{cat_name}' cannot make fields {invalid_fields} visible - "
-                                f"not in parent's visible_fields. Removing these fields."
+                            raise ValueError(
+                                f"Category '{cat_name}' cannot make fields {invalid_fields} visible — "
+                                f"they are not in parent '{parent_name}' visible_fields."
                             )
-                            # Use intersection to ensure child is subset of parent
-                            visible_fields = list(child_visible & parent_visible)
-                            item['visible_fields'] = visible_fields
                 elif parent.get('visible_fields'):
                     # Inherit parent's visible_fields if not specified
                     visible_fields = parent['visible_fields'].copy()
@@ -369,8 +363,7 @@ class TicketConfig(AppConfig):
                 # Enhanced dict format with permissions
                 flag_name = flag.get('name')
                 if not flag_name:
-                    logger.warning("Flag dict must have 'name' field")
-                    continue
+                    raise ValueError("Each flag dict in 'grievance_flags' must have a 'name' field.")
                 
                 # Process permissions
                 permissions = flag.get('permissions', [])
