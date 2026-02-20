@@ -2,8 +2,11 @@
 Test that security filtering is properly implemented at the model level.
 This ensures security is enforced consistently across all endpoints (GraphQL, FHIR, etc.)
 """
+from unittest.mock import Mock
+
 from django.test import TestCase
 from django.conf import settings
+from graphql import ResolveInfo
 
 from core.test_helpers import create_test_interactive_user
 from grievance_social_protection.models import Ticket, Comment
@@ -216,9 +219,6 @@ class ModelSecurityTest(TestCase):
 
     def test_graphql_info_object_handling(self):
         """Test that GraphQL ResolveInfo objects are handled correctly"""
-        from graphql import ResolveInfo
-        from unittest.mock import Mock
-
         # Create a mock ResolveInfo with user
         mock_info = Mock(spec=ResolveInfo)
         mock_info.context = Mock()
