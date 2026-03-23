@@ -18,11 +18,11 @@ class GrievanceRightsManager:
     # Reserve 127100-127999 for dynamic grievance permissions
     GRIEVANCE_RIGHT_BASE = 127100
     GRIEVANCE_RIGHT_MAX = 127999
-    
+
     # Permission fields limits
     CODENAME_MAX_LENGTH = 100
     PERMISSION_NAME_MAX_LENGTH = 255
-    
+
     # Permission type mappings
     PERM_TYPE_MAPPING = {
         'restricted_read': 'gql_query_restricted',
@@ -31,7 +31,7 @@ class GrievanceRightsManager:
         'update': 'gql_mutation_update',
         'delete': 'gql_mutation_delete'
     }
-    
+
     # Permission ID suffix mapping
     PERM_TYPE_SUFFIX = {
         'read': 0,
@@ -40,7 +40,7 @@ class GrievanceRightsManager:
         'delete': 3,
         'restricted_read': 4,
     }
-    
+
     # Regular expressions
     PARENTHESES_CONTENT_RE = re.compile(r'\s*\([^)]*\)')
     NON_ALPHANUMERIC_RE = re.compile(r'[^a-z0-9_]')
@@ -49,7 +49,7 @@ class GrievanceRightsManager:
     def _process_permissions(cls, item_name, item_info, is_flag, existing_by_codename, used_ids, ct, all_rights):
         """
         Process permissions for a single category or flag.
-        
+
         Args:
             item_name: Name of the category or flag
             item_info: Dictionary containing item configuration
@@ -61,13 +61,13 @@ class GrievanceRightsManager:
         """
         permissions = item_info.get('permissions', [])
         item_info['generated_rights'] = {}
-        
+
         for perm_type in permissions:
             # Generate codename with length limit
             codename, permission_name, right_name = cls._generate_permission_fields(
                 perm_type, item_name, is_flag=is_flag
             )
-            
+
             # Check if permission already exists
             if codename in existing_by_codename:
                 perm = existing_by_codename[codename]
@@ -88,7 +88,7 @@ class GrievanceRightsManager:
                 item_info['generated_rights'][perm_type] = perm.id
                 used_ids.add(new_id)
                 logger.info(f"Created new permission: {codename} (ID: {new_id})")
-            
+
             all_rights[right_name] = item_info['generated_rights'][perm_type]
 
     @classmethod
@@ -160,30 +160,30 @@ class GrievanceRightsManager:
     @classmethod
     def _get_next_available_id(cls, perm_type, used_ids):
         suffix = cls.PERM_TYPE_SUFFIX[perm_type]
-        
+
         # Start from base and find next available with correct suffix
         candidate = cls.GRIEVANCE_RIGHT_BASE + suffix
         while candidate in used_ids and candidate <= cls.GRIEVANCE_RIGHT_MAX:
             candidate += 10  # Maintain suffix while incrementing
-            
+
         if candidate > cls.GRIEVANCE_RIGHT_MAX:
             raise ValueError(f"No available ID for permission type {perm_type}")
-            
+
         return candidate
-    
+
     @staticmethod
     def truncate_with_template(template, variable, max_length):
         """Generate string from template, truncating variable if needed"""
         base = template.format(variable=variable)
         if len(base) <= max_length:
             return base
-        
+
         # Calculate space available for variable
         prefix_suffix_len = len(template.format(variable=''))
         max_var_len = max_length - prefix_suffix_len
         truncated_var = variable[:max_var_len]
         return template.format(variable=truncated_var)
-    
+
     @classmethod
     def clean_name(cls, name):
         """Remove parentheses and their contents from a name"""
@@ -193,10 +193,10 @@ class GrievanceRightsManager:
     def generate_safe_name(cls, name):
         """
         Generate a safe name suitable for use in codenames.
-        
+
         Args:
             name: The original category or flag name
-            
+
         Returns:
             str: The sanitized safe name
         """
@@ -208,12 +208,12 @@ class GrievanceRightsManager:
     def _generate_permission_fields(cls, perm_type, original_name, is_flag=False):
         """
         Generate permission fields with proper length limits for Django.
-        
+
         Args:
             perm_type: The permission type (e.g., 'read', 'create')
             original_name: The original unsanitized name for the permission description
             is_flag: Whether this is for a flag (True) or category (False)
-            
+
         Returns:
             tuple: (codename, permission_name, right_name) where:
                 - codename is limited to 100 chars
@@ -222,26 +222,27 @@ class GrievanceRightsManager:
         """
         perm_type_display = perm_type.replace('_', ' ')
         safe_name = cls.generate_safe_name(original_name)
-        
+
         # Generate templates based on whether it's a flag or category
         ticket_suffix = "flagged tickets" if is_flag else "tickets"
         right_suffix = "flagged_tickets_perms" if is_flag else "category_tickets_perms"
-        
+
         # Build codename template
         if is_flag:
             codename_template = f"{perm_type}_flag_{{variable}}_grievance"
         else:
             codename_template = f"{perm_type}_{{variable}}_grievance"
-        
+
         # Build permission name template
         name_template = f"Can {perm_type_display} {{variable}} {ticket_suffix}"
-        
+
         # Generate right name using mapping
         prefix = cls.PERM_TYPE_MAPPING[perm_type]
         right_name = f"{prefix}_{safe_name}_{right_suffix}" if prefix else ''
-        
+
         # Generate final codename and permission name with truncation
         codename = cls.truncate_with_template(codename_template, safe_name, cls.CODENAME_MAX_LENGTH)
-        permission_name = cls.truncate_with_template(name_template, cls.clean_name(original_name).replace('|', ' '), cls.PERMISSION_NAME_MAX_LENGTH)
-        
+        permission_name = cls.truncate_with_template(name_template, cls.clean_name(
+            original_name).replace('|', ' '), cls.PERMISSION_NAME_MAX_LENGTH)
+
         return codename, permission_name, right_name

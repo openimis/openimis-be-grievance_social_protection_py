@@ -12,6 +12,7 @@ from grievance_social_protection.rights import GrievanceRightsManager
 
 logger = logging.getLogger(__name__)
 
+
 class Command(BaseCommand):
     help = 'Manage grievance permissions in Django auth_permission table'
 
@@ -43,7 +44,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         action = options['action']
-        
+
         if action == 'list':
             self.list_permissions(options['format'])
         elif action == 'cleanup':
@@ -88,7 +89,8 @@ class Command(BaseCommand):
 
         for flag_name, flag_info in TicketConfig.processed_flags.items():
             for perm_type in flag_info.get('permissions', []):
-                codename, _, name = GrievanceRightsManager._generate_permission_fields(perm_type, flag_name, is_flag=True)
+                codename, _, name = GrievanceRightsManager._generate_permission_fields(
+                    perm_type, flag_name, is_flag=True)
                 if Permission.objects.filter(codename=codename, content_type=ct).exists():
                     existing.append(codename)
                 else:
@@ -108,19 +110,19 @@ class Command(BaseCommand):
             codename__endswith='_grievance',
             id__range=(127100, 127999)
         ).order_by('id')
-        
+
         if format_type == 'table':
             self.stdout.write("\nGrievance Permissions:")
             self.stdout.write("-" * 80)
             self.stdout.write(f"{'ID':<8} {'Codename':<50} {'Name':<30}")
             self.stdout.write("-" * 80)
-            
+
             for perm in perms:
                 self.stdout.write(f"{perm.id:<8} {perm.codename:<50} {perm.name[:30]:<30}")
-            
+
             self.stdout.write("-" * 80)
             self.stdout.write(f"Total: {perms.count()} permissions\n")
-            
+
         elif format_type == 'json':
             data = [
                 {
@@ -131,7 +133,7 @@ class Command(BaseCommand):
                 for perm in perms
             ]
             self.stdout.write(json.dumps(data, indent=2))
-            
+
         elif format_type == 'csv':
             self.stdout.write("ID,Codename,Name")
             for perm in perms:
@@ -140,34 +142,34 @@ class Command(BaseCommand):
     def cleanup_permissions(self, dry_run, skip_confirmation=False):
         """Remove orphaned permissions not in current configuration."""
         configured_perms = self._collect_configured_codenames()
-        
+
         # Get content type for Ticket model
         try:
             ct = ContentType.objects.get_for_model(Ticket)
         except Exception as e:
             logger.warning(f"Could not get ContentType for Ticket model: {e}")
             return
-    
+
         # Find orphaned permissions
         all_perms = Permission.objects.filter(
             content_type=ct,
             codename__endswith='_grievance',
             id__range=(127100, 127999)
         )
-        
+
         orphaned = []
         for perm in all_perms:
             if perm.codename not in configured_perms:
                 orphaned.append(perm)
-        
+
         if not orphaned:
             self.stdout.write(self.style.SUCCESS("No orphaned permissions found."))
             return
-        
+
         self.stdout.write(f"\nFound {len(orphaned)} orphaned permission(s):")
         for perm in orphaned:
             self.stdout.write(f"  - {perm.id}: {perm.codename}")
-        
+
         if dry_run:
             self.stdout.write(self.style.WARNING("\nDry run - no changes made."))
         else:
@@ -192,24 +194,24 @@ class Command(BaseCommand):
             'category_permissions': {},
             'flag_permissions': {}
         }
-        
+
         # Export base permissions
         base_perms = Permission.objects.filter(
             id__range=(127000, 127099)
         )
         for perm in base_perms:
             data['base_permissions'][perm.codename] = perm.id
-        
+
         # Export category permissions
         for cat_name, cat_info in TicketConfig.processed_categories.items():
             if cat_info.get('generated_rights'):
                 data['category_permissions'][cat_name] = cat_info['generated_rights']
-        
+
         # Export flag permissions
         for flag_name, flag_info in TicketConfig.processed_flags.items():
             if flag_info.get('generated_rights'):
                 data['flag_permissions'][flag_name] = flag_info['generated_rights']
-        
+
         if format_type == 'json':
             self.stdout.write(json.dumps(data, indent=2))
         else:
@@ -218,13 +220,13 @@ class Command(BaseCommand):
             self.stdout.write("\nBase Permissions:")
             for code, id in data['base_permissions'].items():
                 self.stdout.write(f"  {code}: {id}")
-            
+
             self.stdout.write("\nCategory Permissions:")
             for cat, perms in data['category_permissions'].items():
                 self.stdout.write(f"  {cat}:")
                 for ptype, pid in perms.items():
                     self.stdout.write(f"    {ptype}: {pid}")
-            
+
             self.stdout.write("\nFlag Permissions:")
             for flag, perms in data['flag_permissions'].items():
                 self.stdout.write(f"  {flag}:")
@@ -239,16 +241,16 @@ class Command(BaseCommand):
             raise CommandError(f"Could not get ContentType: {e}")
 
         existing, created = self._collect_configured_permissions(ct)
-        
-        self.stdout.write(f"\nPermission Sync Summary:")
+
+        self.stdout.write("\nPermission Sync Summary:")
         self.stdout.write(f"  Existing: {len(existing)} permissions")
         self.stdout.write(f"  To create: {len(created)} permissions")
-        
+
         if created:
             self.stdout.write("\nPermissions to create:")
             for codename, name in created:
                 self.stdout.write(f"  - {codename}: {name}")
-        
+
         if dry_run:
             self.stdout.write(self.style.WARNING("\nDry run - no changes made."))
         else:

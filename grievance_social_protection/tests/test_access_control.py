@@ -13,6 +13,7 @@ from grievance_social_protection.tests.test_helpers import (
 )
 import grievance_social_protection
 
+
 class GrievanceAccessControlTest(TestCase):
     """Test automatic rights generation and access control for grievance categories and flags"""
 

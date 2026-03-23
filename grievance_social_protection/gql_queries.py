@@ -142,7 +142,7 @@ class TicketGQLType(DjangoObjectType):
     reporter_first_name = graphene.String()
     reporter_last_name = graphene.String()
     reporter_dob = graphene.String()
-    
+
     # Access level for this ticket based on user's rights
     access_level = graphene.String()
 
@@ -150,7 +150,7 @@ class TicketGQLType(DjangoObjectType):
     def resolve_access_level(root, info):
         user = info.context.user
         return GrievanceAccessControl.get_user_access_level(user, root.category, root.flags)
-    
+
     @staticmethod
     def _should_restrict_field(field_name, root, info):
         """
@@ -324,7 +324,6 @@ class TicketGQLType(DjangoObjectType):
     @staticmethod
     def resolve_due_date(root, info):
         return TicketGQLType._restricted_resolve(root, info, 'due_date', restricted_value=None)
-    
 
     class Meta:
         model = Ticket
@@ -496,12 +495,12 @@ class GrievanceTypeConfigurationGQLType(ObjectType):
 
     def resolve_grievance_channels(self, info):
         return TicketConfig.grievance_channels
-    
+
     def resolve_grievance_categories_hierarchical(self, info):
         """Return hierarchical category structure with access control"""
         user = info.context.user
         hierarchy = GrievanceAccessControl.get_category_hierarchy(user)
-        
+
         def build_gql_category(cat_dict):
             """Convert dict to GQL type"""
             children = [build_gql_category(child) for child in cat_dict.get('children', [])]
@@ -513,16 +512,16 @@ class GrievanceTypeConfigurationGQLType(ObjectType):
                 default_flags=cat_dict.get('default_flags', []),
                 children=children
             )
-        
+
         return [build_gql_category(cat) for cat in hierarchy]
-    
+
     def resolve_grievance_flags_detailed(self, info):
         """Return detailed flag information with access control"""
-        
+
         user = info.context.user
         accessible_flags = GrievanceAccessControl.get_accessible_flags(user)
         processed_flags = getattr(TicketConfig, 'processed_flags', {})
-        
+
         flags = []
         for flag_name in accessible_flags:
             flag_info = processed_flags.get(flag_name, {})
@@ -531,9 +530,9 @@ class GrievanceTypeConfigurationGQLType(ObjectType):
                 priority=flag_info.get('priority', 'Medium'),
                 permissions=flag_info.get('permissions', {})
             ))
-        
+
         return flags
-    
+
     def resolve_grievance_category_staff_roles(self, info):
         return [
             AttendingStaffRoleGQLType(category=category_key, role_ids=role_ids)

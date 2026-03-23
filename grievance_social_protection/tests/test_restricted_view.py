@@ -10,7 +10,6 @@ from graphene.test import Client
 from grievance_social_protection.models import Ticket
 from grievance_social_protection.schema import Query
 from grievance_social_protection.access_control import GrievanceAccessControl
-from grievance_social_protection.apps import TicketConfig
 from grievance_social_protection.tests.test_helpers import (
     setup_grievance_config, assign_rights_to_user, get_rights,
 )
@@ -206,9 +205,9 @@ class RestrictedViewTest(openIMISGraphQLTestCase):
         if vbg_ticket:
             # Should see all info including sensitive data
             self.assertEqual(vbg_ticket['description'],
-                            'This contains very sensitive personal information that should be restricted')
+                             'This contains very sensitive personal information that should be restricted')
             self.assertEqual(vbg_ticket['resolution'],
-                            'This is the confidential resolution details')
+                             'This is the confidential resolution details')
             self.assertEqual(vbg_ticket['accessLevel'], 'read')
 
     def test_no_access_user_sees_only_public(self):

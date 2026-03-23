@@ -6,6 +6,7 @@ from .apps import TicketConfig
 
 logger = logging.getLogger(__name__)
 
+
 class GrievanceAccessControl:
     """
     Handles rights-based access control for grievance categories and flags.
@@ -174,7 +175,7 @@ class GrievanceAccessControl:
 
         def min_access_level(levels):
             """Return most restrictive among present levels."""
-            levels = [l for l in levels if l is not None]
+            levels = [lvl for lvl in levels if lvl is not None]
             if not levels:
                 return None
 
@@ -447,7 +448,8 @@ class GrievanceAccessControl:
                     for child_name, child_info in TicketConfig.processed_categories.items():
                         if child_info.get('parent') == category_name:
                             if cls.can_view_category(user, child_name):  # Has access
-                                child_dict = cls._build_category_dict(child_name, child_info, user, category_info, is_child=True)
+                                child_dict = cls._build_category_dict(
+                                    child_name, child_info, user, category_info, is_child=True)
                                 category_dict['children'].append(child_dict)
 
                     hierarchy.append(category_dict)

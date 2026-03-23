@@ -6,15 +6,13 @@ This module provides comprehensive test coverage for:
 - _get_next_available_id(): ID generation with suffix pattern
 - _generate_permission_fields(): Codename and permission name generation
 """
-from unittest.mock import MagicMock, patch
-
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 
 from grievance_social_protection.models import Ticket
 from grievance_social_protection.rights import GrievanceRightsManager
-from grievance_social_protection.apps import TicketConfig, DEFAULT_CFG
+from grievance_social_protection.apps import TicketConfig
 import grievance_social_protection
 
 

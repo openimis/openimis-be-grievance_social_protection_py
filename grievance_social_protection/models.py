@@ -56,13 +56,12 @@ class Ticket(HistoryBusinessModel):
 
     def __str__(self):
         return f"{self.title}"
-    
+
     def save(self, *args, **kwargs):
         # Set default category if empty
         if not self.category:
             self.category = TicketConfig.default_grievance_type
         super().save(*args, **kwargs)
-
 
     @classmethod
     def filter_queryset(cls, queryset=None):
@@ -138,7 +137,7 @@ class Comment(HistoryModel):
             allowed_tickets = Ticket.filter_queryset()
             allowed_tickets = GrievanceAccessControl.filter_ticket_queryset(allowed_tickets, user)
             allowed_ticket_ids = allowed_tickets.values_list('id', flat=True)
-            
+
             # Only show comments for tickets the user can access
             queryset = queryset.filter(ticket_id__in=allowed_ticket_ids)
         return queryset

@@ -5,32 +5,32 @@ from grievance_social_protection.apps import TicketConfig
 
 class ConfigProcessingTest(TestCase):
     """Test configuration processing for unified category and flag formats"""
-    
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-    
+
     def test_process_simple_string_categories(self):
         """Test processing simple string category list"""
         cfg = {
             'grievance_types': ['complaint', 'feedback', 'appeal']
         }
-        
+
         TicketConfig._TicketConfig__process_unified_categories(cfg)
-        
+
         # Check flat list maintained - includes 'uncategorized' added by default
         self.assertEqual(cfg['grievance_types'], ['uncategorized', 'complaint', 'feedback', 'appeal'])
-        
-        # Check processed structure - includes 'uncategorized' 
+
+        # Check processed structure - includes 'uncategorized'
         processed = cfg['processed_categories']
         self.assertEqual(len(processed), 4)
-        
+
         # Check category details
         self.assertIn('complaint', processed)
         self.assertEqual(processed['complaint']['priority'], 'Medium')
         self.assertEqual(processed['complaint']['permissions'], [])
         self.assertEqual(processed['complaint']['parent'], None)
-    
+
     def test_process_mixed_categories(self):
         """Test processing mixed string and dict categories"""
         cfg = {
@@ -69,7 +69,7 @@ class ConfigProcessingTest(TestCase):
         self.assertEqual(processed['detailed']['priority'], 'Critical')
         self.assertEqual(processed['detailed']['permissions'], ['update', 'delete'])
         self.assertEqual(processed['detailed']['default_flags'], ['urgent'])
-    
+
     def test_process_hierarchical_categories(self):
         """Test processing hierarchical category structure"""
         cfg = {
@@ -124,7 +124,6 @@ class ConfigProcessingTest(TestCase):
         self.assertEqual(processed['parent|child2']['permissions'], ['read', 'create'])  # Inherited from parent
         self.assertEqual(processed['parent|child2']['default_flags'], ['important'])  # Inherited
 
-
     def test_process_flags(self):
         """Test processing flag configurations"""
         cfg = {
@@ -151,7 +150,7 @@ class ConfigProcessingTest(TestCase):
         # List permissions - stored as-is
         self.assertEqual(processed['complex_flag']['priority'], 'High')
         self.assertEqual(processed['complex_flag']['permissions'], ['read', 'update'])
-    
+
     def test_category_resolution_times(self):
         """Test processing categories with resolution times"""
         cfg = {
@@ -174,11 +173,11 @@ class ConfigProcessingTest(TestCase):
             ],
             'resolution_times': '5,0'  # Global default
         }
-        
+
         TicketConfig._TicketConfig__process_unified_categories(cfg)
-        
+
         processed = cfg['processed_categories']
-        
+
         # Check resolution times are stored
         self.assertEqual(processed['urgent']['resolution_times'], '1,0')
         self.assertEqual(processed['urgent|very_urgent']['resolution_times'], '0,12')
@@ -186,7 +185,7 @@ class ConfigProcessingTest(TestCase):
         self.assertEqual(processed['urgent|less_urgent']['resolution_times'], '1,0')
         # Simple category should not have resolution_times
         self.assertIsNone(processed['normal']['resolution_times'])
-    
+
     def test_resolution_times_with_mixed_configuration(self):
         """Test resolution times with both category-specific and default_resolution"""
         cfg = {
@@ -203,10 +202,10 @@ class ConfigProcessingTest(TestCase):
             },
             'resolution_times': '5,0'
         }
-        
+
         TicketConfig._TicketConfig__process_unified_categories(cfg)
         TicketConfig._TicketConfig__validate_grievance_default_resolution_time(cfg)
-        
+
         # Check unified resolution times mapping
         unified = cfg.get('unified_resolution_times', {})
         self.assertEqual(unified['priority_cat'], '2,0')  # Category-specific wins

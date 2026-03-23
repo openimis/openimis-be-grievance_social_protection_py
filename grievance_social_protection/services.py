@@ -112,22 +112,22 @@ class TicketService(BaseService):
 
             new_ticket_code = f'GRS{last_ticket_code_numeric + 1:08}'
             obj_data['code'] = new_ticket_code
-    
+
     def _validate_access_control(self, obj_data, access_type=GrievanceAccessControl.PERM_CREATE):
         """Validate user has permission to use selected category and flags"""
         self._check_access_or_raise(
             obj_data.get('category'), obj_data.get('flags'), access_type
         )
-    
+
     def _apply_category_defaults(self, obj_data):
         """Apply category defaults (flags, priority) if not already set"""
         category = obj_data.get('category')
         if not category:
             return
-        
+
         # Get category defaults
         defaults = GrievanceAccessControl.get_category_defaults(category)
-        
+
         # Apply default flags
         default_flags = defaults.get('default_flags', [])
         if default_flags:
@@ -136,7 +136,7 @@ class TicketService(BaseService):
                 if flag not in existing_flags:
                     existing_flags.append(flag)
             obj_data['flags'] = ' '.join(existing_flags)
-        
+
         # Get effective priority if not set
         if not obj_data.get('priority'):
             obj_data['priority'] = GrievanceAccessControl.get_effective_priority(
@@ -202,7 +202,11 @@ class CommentService:
                     "detail": "resolve_grievance_by_comment",
                 }
         except Exception as exc:
-            return output_exception(model_name=self.OBJECT_TYPE.__name__, method="resolve_grievance_by_comment", exception=exc)
+            return output_exception(
+                model_name=self.OBJECT_TYPE.__name__,
+                method="resolve_grievance_by_comment",
+                exception=exc
+            )
 
     def save_instance(self, obj_):
         obj_.save(user=self.user)

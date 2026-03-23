@@ -131,7 +131,7 @@ class TicketQueryFilteringTest(TestCase):
 
         for name, ticket in self.tickets.items():
             self.assertIn(ticket.id, ticket_ids,
-                         f"Admin user should see '{name}' ticket (category={ticket.category}, flags={ticket.flags})")
+                          f"Admin user should see '{name}' ticket (category={ticket.category}, flags={ticket.flags})")
 
     def test_filter_limited_permissions(self):
         """Test filtering with limited permissions"""
