@@ -3,6 +3,7 @@ import sys
 import os
 
 from django.apps import AppConfig
+from django.db import OperationalError, ProgrammingError
 
 logger = logging.getLogger(__name__)
 
@@ -100,10 +101,15 @@ class TicketConfig(AppConfig):
         self.__validate_grievance_dict_fields(cfg, 'default_resolution')
         self.__validate_grievance_default_resolution_time(cfg)
         self.__load_config(cfg)
-        # Generate rights only if we're not in a migration, and NO_DATABASE is set
+        # Generate rights only when the database is available and ready.
+        # Skip during migrations, when NO_DATABASE is set, or when
+        # core tables (django_content_type, auth_permission) don't exist yet.
         if os.environ.get("NO_DATABASE") != "True" and 'migrate' not in sys.argv and 'makemigrations' not in sys.argv:
-            from .rights import GrievanceRightsManager
-            GrievanceRightsManager.generate_automatic_rights(self)
+            try:
+                from .rights import GrievanceRightsManager
+                GrievanceRightsManager.generate_automatic_rights(self)
+            except (OperationalError, ProgrammingError):
+                logger.info("Database tables not ready, skipping automatic rights generation.")
 
     @classmethod
     def __validate_grievance_dict_fields(cls, cfg, field_name):

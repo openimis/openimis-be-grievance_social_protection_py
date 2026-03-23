@@ -119,14 +119,14 @@ class GrievanceAccessControl:
     @classmethod
     def can_view_category(cls, user, category_name):
         """Check if user can view a category (has either read or restricted_read access)"""
-        return (cls.check_category_access(user, category_name, cls.PERM_READ) or
-                cls.check_category_access(user, category_name, cls.PERM_RESTRICTED_READ))
+        return (cls.check_category_access(user, category_name, cls.PERM_READ)
+                or cls.check_category_access(user, category_name, cls.PERM_RESTRICTED_READ))
 
     @classmethod
     def can_view_flag(cls, user, flag_name):
         """Check if user can view a flag (has either read or restricted_read access)"""
-        return (cls.check_flag_access(user, flag_name, cls.PERM_READ) or
-                cls.check_flag_access(user, flag_name, cls.PERM_RESTRICTED_READ))
+        return (cls.check_flag_access(user, flag_name, cls.PERM_READ)
+                or cls.check_flag_access(user, flag_name, cls.PERM_RESTRICTED_READ))
 
     @classmethod
     def _has_restrictions(cls, name, config_attr):
