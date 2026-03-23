@@ -66,10 +66,14 @@ def assign_rights_to_user(user, right_ids, role_name=None):
         defaults={'is_system': 0, 'is_blocked': False, 'audit_user_id': -1}
     )
     for right_id in right_ids:
-        RoleRight.objects.create(
-            role=role, right_id=int(right_id), audit_user_id=-1
+        RoleRight.objects.get_or_create(
+            role=role, right_id=int(right_id),
+            defaults={'audit_user_id': -1}
         )
-    UserRole.objects.create(user=user.i_user, role=role, audit_user_id=-1)
+    UserRole.objects.get_or_create(
+        user=user.i_user, role=role,
+        defaults={'audit_user_id': -1}
+    )
 
 
 def get_rights(config_attr, name):

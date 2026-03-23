@@ -72,11 +72,10 @@ class TicketFilterSet(django_filters.FilterSet):
             # Skip empty values (matches django-filter base behavior)
             if value in EMPTY_VALUES:
                 continue
-            base_field = filter_obj.field_name.split('__')[0]
-            if base_field in restricted:
+            if name in restricted:
                 logger.info(
                     "User %s blocked from filtering on restricted field '%s'",
-                    getattr(user, 'username', '?'), base_field
+                    getattr(user, 'username', '?'), name
                 )
                 continue
             queryset = filter_obj.filter(queryset, value)
