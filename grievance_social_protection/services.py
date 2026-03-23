@@ -28,6 +28,8 @@ class TicketService(BaseService):
         self._generate_code(obj_data)
         self._validate_access_control(obj_data, access_type=GrievanceAccessControl.PERM_CREATE)
         self._apply_category_defaults(obj_data)
+        # Re-validate after defaults may have added restricted flags
+        self._validate_access_control(obj_data, access_type=GrievanceAccessControl.PERM_CREATE)
         resolution_error = validate_resolution(obj_data)
         if resolution_error:
             raise ValidationError(resolution_error)
@@ -39,6 +41,8 @@ class TicketService(BaseService):
         self._validate_existing_ticket_access(obj_data, access_type=GrievanceAccessControl.PERM_UPDATE)
         self._validate_access_control(obj_data, access_type=GrievanceAccessControl.PERM_UPDATE)
         self._apply_category_defaults(obj_data)
+        # Re-validate after defaults may have added restricted flags
+        self._validate_access_control(obj_data, access_type=GrievanceAccessControl.PERM_UPDATE)
         resolution_error = validate_resolution(obj_data)
         if resolution_error:
             raise ValidationError(resolution_error)
@@ -60,11 +64,15 @@ class TicketService(BaseService):
 
     def _validate_existing_ticket_access(self, obj_data, access_type):
         """Validate user has permission for the existing ticket's category and flags"""
-        ticket_uuid = obj_data.get('uuid') or obj_data.get('id')
-        if not ticket_uuid:
+        ticket_uuid = obj_data.get('uuid')
+        ticket_id = obj_data.get('id')
+        if not ticket_uuid and not ticket_id:
             return
 
-        ticket = Ticket.objects.filter(uuid=ticket_uuid).first()
+        if ticket_uuid:
+            ticket = Ticket.objects.filter(uuid=ticket_uuid).first()
+        else:
+            ticket = Ticket.objects.filter(id=ticket_id).first()
         if not ticket:
             return
 

@@ -2,6 +2,7 @@ import logging
 
 import graphene
 import django_filters
+from django_filters.constants import EMPTY_VALUES
 from django.db import models
 from graphene import ObjectType
 from graphene_django import DjangoObjectType
@@ -68,8 +69,8 @@ class TicketFilterSet(django_filters.FilterSet):
             filter_obj = self.filters.get(name)
             if not filter_obj:
                 continue
-            # Skip null/empty values (matches django-filter base behavior)
-            if value is None:
+            # Skip empty values (matches django-filter base behavior)
+            if value in EMPTY_VALUES:
                 continue
             base_field = filter_obj.field_name.split('__')[0]
             if base_field in restricted:
@@ -480,8 +481,6 @@ class GrievanceTypeConfigurationGQLType(ObjectType):
     # Enhanced fields
     grievance_categories_hierarchical = graphene.List(GrievanceCategoryGQLType)
     grievance_flags_detailed = graphene.List(GrievanceFlagGQLType)
-    accessible_categories = graphene.List(graphene.String)
-    accessible_flags = graphene.List(graphene.String)
 
     def resolve_grievance_types(self, info):
         # Return accessible categories in flat format for backward compatibility

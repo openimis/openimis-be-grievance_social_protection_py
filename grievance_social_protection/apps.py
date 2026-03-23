@@ -107,7 +107,7 @@ class TicketConfig(AppConfig):
         if os.environ.get("NO_DATABASE") != "True" and 'migrate' not in sys.argv and 'makemigrations' not in sys.argv:
             try:
                 from .rights import GrievanceRightsManager
-                GrievanceRightsManager.generate_automatic_rights(self)
+                GrievanceRightsManager.generate_automatic_rights(TicketConfig)
             except (OperationalError, ProgrammingError):
                 logger.info("Database tables not ready, skipping automatic rights generation.")
 
@@ -252,10 +252,10 @@ class TicketConfig(AppConfig):
                 full_name = f"{parent_name}|{item}" if parent_name else item
                 processed_categories[full_name] = {
                     'priority': parent.get('priority', 'Medium'),
-                    'permissions': parent.get('permissions', []),  # Inherit from parent
-                    'default_flags': parent.get('default_flags', []),
+                    'permissions': list(parent.get('permissions', [])),
+                    'default_flags': list(parent.get('default_flags', [])),
                     'resolution_times': parent.get('resolution_times'),
-                    'visible_fields': parent.get('visible_fields', []),  # Inherit from parent
+                    'visible_fields': list(parent.get('visible_fields', [])),
                     'parent': parent_name,
                     'children': {},
                     'generated_rights': {}
@@ -271,8 +271,8 @@ class TicketConfig(AppConfig):
 
                 full_name = f"{parent_name}|{cat_name}" if parent_name else cat_name
 
-                # Process permissions
-                permissions = item.get('permissions', parent.get('permissions', []))
+                # Process permissions — copy to avoid mutating parent's list
+                permissions = list(item.get('permissions', parent.get('permissions', [])))
 
                 # Process visible_fields with inheritance constraints
                 visible_fields = item.get('visible_fields', [])
@@ -304,7 +304,7 @@ class TicketConfig(AppConfig):
 
                 # Inherit from parent if not specified
                 priority = item.get('priority', parent.get('priority', 'Medium'))
-                default_flags = item.get('default_flags', parent.get('default_flags', []))
+                default_flags = list(item.get('default_flags', parent.get('default_flags', [])))
 
                 # Handle resolution_times - inherit from parent if not specified
                 resolution_times = item.get('resolution_times')

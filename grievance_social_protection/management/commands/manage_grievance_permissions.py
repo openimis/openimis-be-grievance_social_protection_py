@@ -81,20 +81,20 @@ class Command(BaseCommand):
 
         for cat_name, cat_info in TicketConfig.processed_categories.items():
             for perm_type in cat_info.get('permissions', []):
-                codename, _, name = GrievanceRightsManager._generate_permission_fields(perm_type, cat_name)
+                codename, permission_name, _ = GrievanceRightsManager._generate_permission_fields(perm_type, cat_name)
                 if Permission.objects.filter(codename=codename, content_type=ct).exists():
                     existing.append(codename)
                 else:
-                    missing.append((codename, name))
+                    missing.append((codename, permission_name))
 
         for flag_name, flag_info in TicketConfig.processed_flags.items():
             for perm_type in flag_info.get('permissions', []):
-                codename, _, name = GrievanceRightsManager._generate_permission_fields(
+                codename, permission_name, _ = GrievanceRightsManager._generate_permission_fields(
                     perm_type, flag_name, is_flag=True)
                 if Permission.objects.filter(codename=codename, content_type=ct).exists():
                     existing.append(codename)
                 else:
-                    missing.append((codename, name))
+                    missing.append((codename, permission_name))
 
         return existing, missing
 
