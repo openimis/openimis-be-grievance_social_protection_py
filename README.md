@@ -191,7 +191,7 @@ The `visible_fields` feature controls field visibility for users with `restricte
     {
       "name": "fraud_complaint",
       "visible_fields": ["id", "status", "title"]  // ✗ Invalid - "title" not in parent
-      // System will automatically remove "title" and log a warning
+      // System will raise a ValueError until this is corrected
     }
   ]
 }

@@ -6,7 +6,7 @@ import re
 
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from .models import Ticket
 
 logger = logging.getLogger(__name__)
@@ -100,42 +100,51 @@ class GrievanceRightsManager:
         # Get content type for Ticket model
         ct = ContentType.objects.get_for_model(Ticket)
 
-        with transaction.atomic():
-            # Lock all permissions in our reserved range to prevent race conditions
-            # during concurrent app startups. select_for_update() acquires row-level
-            # locks that block other transactions from reading these rows until we commit.
-            locked_perms = Permission.objects.select_for_update().filter(
-                id__range=(cls.GRIEVANCE_RIGHT_BASE, cls.GRIEVANCE_RIGHT_MAX)
-            )
+        # Retry loop: select_for_update only locks existing rows, so concurrent
+        # startups with an empty reserved range can race on INSERT. On
+        # IntegrityError we retry with refreshed locks.
+        max_retries = 3
+        all_rights = {}
 
-            # Build used_ids from locked queryset to ensure consistency
-            used_ids = set(locked_perms.values_list('id', flat=True))
+        for attempt in range(1, max_retries + 1):
+            try:
+                with transaction.atomic():
+                    locked_perms = Permission.objects.select_for_update().filter(
+                        id__range=(cls.GRIEVANCE_RIGHT_BASE, cls.GRIEVANCE_RIGHT_MAX)
+                    )
 
-            # Get all existing grievance permissions from the reserved range
-            existing_perms = locked_perms.filter(
-                content_type=ct,
-                codename__endswith='_grievance',
-            )
+                    used_ids = set(locked_perms.values_list('id', flat=True))
 
-            # Build map of existing permissions by codename
-            existing_by_codename = {perm.codename: perm for perm in existing_perms}
+                    existing_perms = locked_perms.filter(
+                        content_type=ct,
+                        codename__endswith='_grievance',
+                    )
 
-            all_rights = {}  # Collect all rights
+                    existing_by_codename = {perm.codename: perm for perm in existing_perms}
 
-            # Process categories
-            processed_categories = getattr(app_config, 'processed_categories', {})
-            for category_name, category_info in processed_categories.items():
-                cls._process_permissions(
-                    category_name, category_info, False,
-                    existing_by_codename, used_ids, ct, all_rights
-                )
+                    all_rights = {}
 
-            # Process flags
-            processed_flags = getattr(app_config, 'processed_flags', {})
-            for flag_name, flag_info in processed_flags.items():
-                cls._process_permissions(
-                    flag_name, flag_info, True,
-                    existing_by_codename, used_ids, ct, all_rights
+                    processed_categories = getattr(app_config, 'processed_categories', {})
+                    for category_name, category_info in processed_categories.items():
+                        cls._process_permissions(
+                            category_name, category_info, False,
+                            existing_by_codename, used_ids, ct, all_rights
+                        )
+
+                    processed_flags = getattr(app_config, 'processed_flags', {})
+                    for flag_name, flag_info in processed_flags.items():
+                        cls._process_permissions(
+                            flag_name, flag_info, True,
+                            existing_by_codename, used_ids, ct, all_rights
+                        )
+                # Transaction committed successfully
+                break
+            except IntegrityError:
+                if attempt >= max_retries:
+                    raise
+                logger.warning(
+                    "IntegrityError generating grievance rights (attempt %s/%s), retrying...",
+                    attempt, max_retries
                 )
 
         # Store generated rights for documentation (outside transaction)

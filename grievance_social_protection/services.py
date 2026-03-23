@@ -14,6 +14,7 @@ from grievance_social_protection.validations import (
     validate_resolution
 )
 from grievance_social_protection.access_control import GrievanceAccessControl
+from grievance_social_protection.apps import TicketConfig
 
 
 class TicketService(BaseService):
@@ -26,6 +27,10 @@ class TicketService(BaseService):
     def create(self, obj_data):
         self._get_content_type(obj_data)
         self._generate_code(obj_data)
+        # Assign default category before access control so permission
+        # checks always have a category to validate against.
+        if not obj_data.get('category'):
+            obj_data['category'] = TicketConfig.default_grievance_type
         self._validate_access_control(obj_data, access_type=GrievanceAccessControl.PERM_CREATE)
         self._apply_category_defaults(obj_data)
         # Re-validate after defaults may have added restricted flags
