@@ -72,10 +72,10 @@ class TicketFilterSet(django_filters.FilterSet):
             # Skip empty values (matches django-filter base behavior)
             if value in EMPTY_VALUES:
                 continue
-            if name in restricted:
+            if filter_obj.field_name in restricted:
                 logger.info(
                     "User %s blocked from filtering on restricted field '%s'",
-                    getattr(user, 'username', '?'), name
+                    getattr(user, 'username', '?'), filter_obj.field_name
                 )
                 continue
             queryset = filter_obj.filter(queryset, value)
@@ -538,7 +538,10 @@ class GrievanceTypeConfigurationGQLType(ObjectType):
         ]
 
     def resolve_grievance_default_resolutions_by_category(self, info):
+        resolution_mapping = getattr(
+            TicketConfig, 'unified_resolution_times', TicketConfig.default_resolution
+        )
         return [
             ResolutionTimesByCategoryGQLType(category=category_key, resolution_time=resolution_time)
-            for category_key, resolution_time in TicketConfig.default_resolution.items()
+            for category_key, resolution_time in resolution_mapping.items()
         ]

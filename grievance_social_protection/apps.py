@@ -13,6 +13,7 @@ DEFAULT_STRING = 'Default'
 # CRON timedelta: {days},{hours}
 DEFAULT_TIME_RESOLUTION = '5,0'
 DEFAULT_GRIEVANCE_TYPE = 'uncategorized'
+VALID_PERMISSION_TYPES = frozenset({'restricted_read', 'read', 'create', 'update', 'delete'})
 
 DEFAULT_CFG = {
     "default_validations_disabled": False,
@@ -234,7 +235,8 @@ class TicketConfig(AppConfig):
 
             type_exists = any(get_category_name(cat) == default_grievance_type for cat in categories)
 
-            # If not found, add it with default permissions
+            # If not found, add it with default permissions so uncategorized
+            # tickets are subject to access control like all other categories.
             if not type_exists:
                 categories.insert(0, {
                     'name': default_grievance_type,
@@ -273,6 +275,12 @@ class TicketConfig(AppConfig):
 
                 # Process permissions — copy to avoid mutating parent's list
                 permissions = list(item.get('permissions', parent.get('permissions', [])))
+                invalid = set(permissions) - VALID_PERMISSION_TYPES
+                if invalid:
+                    raise ValueError(
+                        f"Category '{cat_name}' has invalid permission types: {invalid}. "
+                        f"Allowed: {sorted(VALID_PERMISSION_TYPES)}"
+                    )
 
                 # Process visible_fields with inheritance constraints
                 visible_fields = item.get('visible_fields', [])
@@ -374,6 +382,12 @@ class TicketConfig(AppConfig):
 
                 # Process permissions
                 permissions = flag.get('permissions', [])
+                invalid = set(permissions) - VALID_PERMISSION_TYPES
+                if invalid:
+                    raise ValueError(
+                        f"Flag '{flag_name}' has invalid permission types: {invalid}. "
+                        f"Allowed: {sorted(VALID_PERMISSION_TYPES)}"
+                    )
 
                 processed_flags[flag_name] = {
                     'priority': flag.get('priority', 'Medium'),

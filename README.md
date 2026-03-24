@@ -42,6 +42,8 @@ The module supports both simple and enhanced category configurations:
 ```
 
 #### Enhanced Format with Auto-Generated Permission IDs
+
+> **Note:** `permissions` values are permission-type strings (`restricted_read`, `read`, `create`, `update`, `delete`), not numeric right IDs. The system generates numeric IDs automatically.
 ```json
 {
   "default_grievance_type": "uncategorized",

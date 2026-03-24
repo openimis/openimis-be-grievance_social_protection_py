@@ -64,7 +64,7 @@ class Query(graphene.ObjectType):
         if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
             raise PermissionDenied(_("unauthorized"))
 
-        query = Ticket.objects.filter(*append_validity_filter(**kwargs)).all().order_by('ticket_title', )
+        query = Ticket.objects.filter(*append_validity_filter(**kwargs)).all().order_by('title')
 
         # Apply category and flag permission filtering
         query = GrievanceAccessControl.filter_ticket_queryset(query, info.context.user)
