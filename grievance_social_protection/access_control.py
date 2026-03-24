@@ -1,6 +1,7 @@
 import logging
 import re
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
 
 from .apps import TicketConfig, CATEGORY_SEPARATOR
 
@@ -271,9 +272,14 @@ class GrievanceAccessControl:
         # Get categories user can at least view with restricted access
         accessible_categories = cls.get_accessible_categories(user)
 
-        # Filter tickets by accessible categories
+        # Filter tickets by accessible categories.
+        # Include NULL/blank category tickets if the default grievance type is accessible,
+        # so legacy tickets without a category remain visible.
         if TicketConfig.processed_categories:
-            queryset = queryset.filter(category__in=accessible_categories)
+            category_filter = Q(category__in=accessible_categories)
+            if TicketConfig.default_grievance_type in accessible_categories:
+                category_filter |= Q(category__isnull=True) | Q(category='')
+            queryset = queryset.filter(category_filter)
 
         # Further filter by flag permissions
         if TicketConfig.processed_flags:

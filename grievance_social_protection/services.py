@@ -74,12 +74,16 @@ class TicketService(BaseService):
         if not ticket_uuid and not ticket_id:
             return
 
+        ticket = None
         if ticket_uuid:
             ticket = Ticket.objects.filter(uuid=ticket_uuid).first()
-        else:
-            ticket = Ticket.objects.filter(id=ticket_id).first()
+        if not ticket and ticket_id:
+            if isinstance(ticket_id, int) or (isinstance(ticket_id, str) and ticket_id.isdigit()):
+                ticket = Ticket.objects.filter(id=ticket_id).first()
+            else:
+                ticket = Ticket.objects.filter(uuid=ticket_id).first()
         if not ticket:
-            return
+            raise ValidationError("Ticket does not exist.")
 
         self._check_access_or_raise(ticket.category, ticket.flags, access_type)
 
@@ -135,6 +139,15 @@ class TicketService(BaseService):
                     f"Unknown category: '{category}'. "
                     f"Must be one of the configured grievance types."
                 )
+        flags = obj_data.get('flags')
+        if flags and TicketConfig.grievance_flags:
+            flag_list = GrievanceAccessControl.parse_flags(flags)
+            for flag in flag_list:
+                if flag not in TicketConfig.grievance_flags:
+                    raise ValidationError(
+                        f"Unknown flag: '{flag}'. "
+                        f"Must be one of the configured grievance flags."
+                    )
         self._check_access_or_raise(
             obj_data.get('category'), obj_data.get('flags'), access_type
         )
