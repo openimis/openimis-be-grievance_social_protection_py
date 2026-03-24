@@ -44,7 +44,7 @@ The module supports both simple and enhanced category configurations:
 #### Enhanced Format with Auto-Generated Permission IDs
 
 > **Note:** `permissions` values are permission-type strings (`restricted_read`, `read`, `create`, `update`, `delete`), not numeric right IDs. The system generates numeric IDs automatically.
-```json
+```jsonc
 {
   "default_grievance_type": "uncategorized",
   "grievance_flags": [
@@ -132,7 +132,7 @@ Resolution times are determined in the following order:
 4. Default value `5,0` (5 days, 0 hours)
 
 ##### Example Configuration
-```json
+```jsonc
 {
   "resolution_times": "5,0",  // Global default: 5 days
   "grievance_types": [
@@ -181,7 +181,7 @@ The `visible_fields` feature controls field visibility for users with `restricte
    - Non-visible fields return `[Restricted]` for text fields or `null` for other types
 
 4. **Example Inheritance**:
-```json
+```jsonc
 {
   "name": "complaint",
   "visible_fields": ["id", "status", "category", "priority", "date_created"],
@@ -218,7 +218,7 @@ Flags are single-level configurations only and do NOT support hierarchical/neste
 ```
 
 #### Enhanced Format with Permissions
-```json
+```jsonc
 {
   "grievance_flags": [
     "public",

@@ -284,11 +284,12 @@ class GrievanceAccessControl:
                 if flag_info.get('generated_rights') and not cls.can_view_flag(user, flag_name)
             ]
 
-            # Exclude tickets with completely restricted flags using exact word boundary matching
-            # to avoid false positives (e.g., "urgent" matching "not_urgent")
+            # Exclude tickets with completely restricted flags using whole-word matching.
+            # Uses POSIX-compatible patterns (no lookbehind) for PostgreSQL compatibility.
             for flag in restricted_flags:
-                # Match flag as a whole word: at start, end, or surrounded by spaces
-                queryset = queryset.exclude(flags__regex=r'(^|(?<= ))' + re.escape(flag) + r'($|(?= ))')
+                queryset = queryset.exclude(
+                    flags__regex=r'(^| )' + re.escape(flag) + r'( |$)'
+                )
 
         return queryset
 

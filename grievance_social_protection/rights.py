@@ -68,16 +68,22 @@ class GrievanceRightsManager:
                 perm_type, item_name, is_flag=is_flag
             )
 
-            # Check if permission already exists
+            # Check if permission already exists (in reserved range first, then globally)
             if codename in existing_by_codename:
                 perm = existing_by_codename[codename]
+            else:
+                # Also check outside reserved range to avoid codename uniqueness violations
+                perm = Permission.objects.filter(
+                    codename=codename, content_type=ct
+                ).first()
+
+            if perm:
                 item_info['generated_rights'][perm_type] = perm.id
                 logger.info(f"Using existing permission: {codename} (ID: {perm.id})")
             else:
                 # Generate new ID following suffix pattern
                 new_id = cls._get_next_available_id(perm_type, used_ids)
 
-                # Create new permission
                 perm = Permission.objects.create(
                     id=new_id,
                     codename=codename,
