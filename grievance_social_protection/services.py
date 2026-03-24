@@ -75,13 +75,14 @@ class TicketService(BaseService):
             return
 
         ticket = None
+        base_qs = Ticket.filter_queryset()
         if ticket_uuid:
-            ticket = Ticket.objects.filter(uuid=ticket_uuid).first()
+            ticket = base_qs.filter(uuid=ticket_uuid).first()
         if not ticket and ticket_id:
             if isinstance(ticket_id, int) or (isinstance(ticket_id, str) and ticket_id.isdigit()):
-                ticket = Ticket.objects.filter(id=ticket_id).first()
+                ticket = base_qs.filter(id=ticket_id).first()
             else:
-                ticket = Ticket.objects.filter(uuid=ticket_id).first()
+                ticket = base_qs.filter(uuid=ticket_id).first()
         if not ticket:
             raise ValidationError("Ticket does not exist.")
 
