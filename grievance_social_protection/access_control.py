@@ -423,18 +423,28 @@ class GrievanceAccessControl:
         """Build a category dictionary with common fields"""
         base_dict = {
             'name': name.split(CATEGORY_SEPARATOR)[-1] if is_child else name,
+            'full_name': name,
             'priority': info.get('priority', parent_info.get('priority', 'Medium') if parent_info else 'Medium'),
             'permissions': info.get('permissions', []),
             'default_flags': info.get('default_flags', []),
-            'access_level': cls.get_user_access_level(user, name)
+            'access_level': cls.get_user_access_level(user, name),
+            'children': [],
         }
 
-        if is_child:
-            base_dict['full_name'] = name
-        else:
-            base_dict['children'] = []
-
         return base_dict
+
+    @classmethod
+    def _build_subtree(cls, parent_name, parent_info, user):
+        """Recursively build accessible children for a category"""
+        children = []
+        for child_name, child_info in TicketConfig.processed_categories.items():
+            if child_info.get('parent') == parent_name:
+                if cls.can_view_category(user, child_name):
+                    child_dict = cls._build_category_dict(
+                        child_name, child_info, user, parent_info, is_child=True)
+                    child_dict['children'] = cls._build_subtree(child_name, child_info, user)
+                    children.append(child_dict)
+        return children
 
     @classmethod
     def get_category_hierarchy(cls, user):
@@ -450,15 +460,8 @@ class GrievanceAccessControl:
             if not category_info.get('parent'):
                 if cls.can_view_category(user, category_name):
                     category_dict = cls._build_category_dict(category_name, category_info, user)
-
-                    # Add accessible children
-                    for child_name, child_info in TicketConfig.processed_categories.items():
-                        if child_info.get('parent') == category_name:
-                            if cls.can_view_category(user, child_name):  # Has access
-                                child_dict = cls._build_category_dict(
-                                    child_name, child_info, user, category_info, is_child=True)
-                                category_dict['children'].append(child_dict)
-
+                    category_dict['children'] = cls._build_subtree(
+                        category_name, category_info, user)
                     hierarchy.append(category_dict)
 
         return hierarchy

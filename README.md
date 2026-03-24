@@ -30,6 +30,14 @@ Value - time to resolution in form of CRON timedelta: `{days},{hours}` where day
 (default: `{Default: '5,0'}`)
 Note: If for given type of the grievance time is not provided then default value is used from `resolution_times`.
 
+### Category Separator
+
+The system uses ` > ` (space-greater than-space) as the hierarchy separator in category full names. For example, a child category `Missing Documents` under parent `Enrollment` has the full name `Enrollment > Missing Documents`. This separator is used universally across the backend (internal keys, database storage, permission names) and frontend (display, Cascader values).
+
+**Important:** Category names must not contain ` > ` as this would break hierarchy parsing.
+
+The separator is defined as `CATEGORY_SEPARATOR` in `apps.py` and imported where needed.
+
 ### Categories Configuration
 
 The module supports both simple and enhanced category configurations:
@@ -253,7 +261,8 @@ The `grievance_config` query returns:
 - `grievance_types`: Flat list of accessible categories
 - `grievance_flags`: List of accessible flags
 - `grievance_channels`: Available channels
-- `grievance_categories_hierarchical`: Hierarchical category structure
+- `grievance_categories_hierarchical`: Hierarchical category structure (recursive `GrievanceCategoryGQLType`; depth depends on client query)
+- `grievance_categories_json`: Full category hierarchy as JSON (no depth limitation)
 - `grievance_flags_detailed`: Detailed flag information with permissions
 - `accessible_categories`: Categories user can create grievances in
 - `accessible_flags`: Flags user can apply to grievances

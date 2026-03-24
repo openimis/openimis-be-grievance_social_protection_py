@@ -479,6 +479,7 @@ class GrievanceTypeConfigurationGQLType(ObjectType):
     grievance_default_resolutions_by_category = graphene.List(ResolutionTimesByCategoryGQLType)
     # Enhanced fields
     grievance_categories_hierarchical = graphene.List(GrievanceCategoryGQLType)
+    grievance_categories_json = graphene.JSONString()
     grievance_flags_detailed = graphene.List(GrievanceFlagGQLType)
 
     def resolve_grievance_types(self, info):
@@ -493,6 +494,11 @@ class GrievanceTypeConfigurationGQLType(ObjectType):
 
     def resolve_grievance_channels(self, info):
         return TicketConfig.grievance_channels
+
+    def resolve_grievance_categories_json(self, info):
+        """Return full category hierarchy as JSON — no depth limitation"""
+        user = info.context.user
+        return GrievanceAccessControl.get_category_hierarchy(user)
 
     def resolve_grievance_categories_hierarchical(self, info):
         """Return hierarchical category structure with access control"""
