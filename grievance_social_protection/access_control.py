@@ -2,7 +2,7 @@ import logging
 import re
 from django.core.exceptions import PermissionDenied
 
-from .apps import TicketConfig
+from .apps import TicketConfig, CATEGORY_SEPARATOR
 
 logger = logging.getLogger(__name__)
 
@@ -416,7 +416,7 @@ class GrievanceAccessControl:
     def _build_category_dict(cls, name, info, user, parent_info=None, is_child=False):
         """Build a category dictionary with common fields"""
         base_dict = {
-            'name': name.split('|')[-1] if is_child else name,
+            'name': name.split(CATEGORY_SEPARATOR)[-1] if is_child else name,
             'priority': info.get('priority', parent_info.get('priority', 'Medium') if parent_info else 'Medium'),
             'permissions': info.get('permissions', []),
             'default_flags': info.get('default_flags', []),
@@ -424,7 +424,7 @@ class GrievanceAccessControl:
         }
 
         if is_child:
-            base_dict['full_name'] = name.replace('|', ' ')
+            base_dict['full_name'] = name
         else:
             base_dict['children'] = []
 

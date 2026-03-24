@@ -241,12 +241,12 @@ class TestGeneratePermissionFields(TestCase):
     def test_hierarchical_category_name(self):
         """Test permission generation for hierarchical category names"""
         codename, permission_name, right_name = GrievanceRightsManager._generate_permission_fields(
-            'read', 'parent|child', is_flag=False
+            'read', 'parent > child', is_flag=False
         )
 
-        # Pipe character should become underscore in codename, space in label
+        # Separator should become underscore in codename, kept readable in label
         self.assertEqual(codename, 'read_parent_child_grievance')
-        self.assertEqual(permission_name, 'Can read parent child tickets')
+        self.assertEqual(permission_name, 'Can read parent > child tickets')
 
     def test_codename_truncation_for_long_names(self):
         """Test that long names are truncated to fit Django's 100 char limit"""

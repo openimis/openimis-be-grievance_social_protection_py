@@ -9,7 +9,8 @@ from grievance_social_protection.apps import TicketConfig
 from grievance_social_protection.models import Ticket
 from grievance_social_protection.rights import GrievanceRightsManager
 from grievance_social_protection.tests.test_helpers import (
-    setup_grievance_config, assign_rights_to_user, get_rights, collect_all_rights,
+    setup_grievance_config, restore_grievance_config,
+    assign_rights_to_user, get_rights, collect_all_rights,
 )
 import grievance_social_protection
 
@@ -28,8 +29,11 @@ class GrievanceAccessControlTest(TestCase):
 
     def setUp(self):
         """Set up test configuration before each test"""
-        self._setup_test_config()
+        self._snapshot = self._setup_test_config()
         self._assign_rights_to_users()
+
+    def tearDown(self):
+        restore_grievance_config(self._snapshot)
 
     def _setup_test_config(self):
         """Set up test configuration data with new permissions format"""
@@ -83,7 +87,7 @@ class GrievanceAccessControlTest(TestCase):
                 'public'
             ]
         }
-        setup_grievance_config(cfg)
+        return setup_grievance_config(cfg)
 
     def _assign_rights_to_users(self):
         """Assign specific rights to test users through roles"""
@@ -227,7 +231,7 @@ class GrievanceAccessControlTest(TestCase):
 
     def test_permission_inheritance_with_overrides(self):
         """Test that child categories can override parent permissions"""
-        service_info = TicketConfig.processed_categories.get('complaint|service_complaint', {})
+        service_info = TicketConfig.processed_categories.get('complaint > service_complaint', {})
         rights = service_info.get('generated_rights', {})
 
         self.assertIn('read', rights)

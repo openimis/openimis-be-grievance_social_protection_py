@@ -3,30 +3,39 @@ from django.test import TestCase
 
 from core.test_helpers import LogInHelper, create_test_interactive_user
 from grievance_social_protection.services import TicketService
-from grievance_social_protection.apps import TicketConfig
 from grievance_social_protection.models import Ticket
 from grievance_social_protection.tests.test_helpers import (
-    setup_grievance_config, assign_rights_to_user, get_rights,
+    setup_grievance_config, restore_grievance_config,
+    assign_rights_to_user, get_rights,
 )
 
 
 class TicketServicePermissionsTest(TestCase):
     """Test permission-based access control in TicketService"""
 
+    _config_snapshot = None
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls._setup_test_config()
+        cls._config_snapshot = cls._setup_test_config()
         cls._create_test_users()
 
+    @classmethod
+    def tearDownClass(cls):
+        if cls._config_snapshot:
+            restore_grievance_config(cls._config_snapshot)
+        super().tearDownClass()
+
     def setUp(self):
-        TicketConfig.processed_categories = {}
-        TicketConfig.processed_flags = {}
-        self._setup_test_config()
+        self._per_test_snapshot = self._setup_test_config()
+
+    def tearDown(self):
+        restore_grievance_config(self._per_test_snapshot)
 
     @classmethod
     def _setup_test_config(cls):
-        """Set up test configuration"""
+        """Set up test configuration, returns snapshot for restore."""
         cfg = {
             'grievance_types': [
                 'open_category',
@@ -51,7 +60,7 @@ class TicketServicePermissionsTest(TestCase):
             ],
             'resolution_times': '5,0'
         }
-        setup_grievance_config(cfg)
+        return setup_grievance_config(cfg)
 
     @classmethod
     def _create_test_users(cls):
@@ -233,7 +242,7 @@ class TicketServicePermissionsTest(TestCase):
         service = TicketService(self.user_no_perms)
 
         obj_data = {
-            'category': 'parent_cat|child1',
+            'category': 'parent_cat > child1',
             'title': 'Test child category',
             'resolution': '5,0'
         }
@@ -241,4 +250,4 @@ class TicketServicePermissionsTest(TestCase):
         with self.assertRaises(ValidationError) as cm:
             service.create(obj_data)
 
-        self.assertIn('parent_cat|child1', str(cm.exception))
+        self.assertIn('parent_cat > child1', str(cm.exception))

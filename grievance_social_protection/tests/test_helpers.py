@@ -42,16 +42,39 @@ def create_comment_for_existing_ticket(user, ticket, resolved=False):
     return comment
 
 
+def save_grievance_config():
+    """Snapshot TicketConfig class-level state so it can be restored later."""
+    return {
+        'processed_categories': dict(TicketConfig.processed_categories),
+        'processed_flags': dict(TicketConfig.processed_flags),
+        'grievance_types': list(TicketConfig.grievance_types),
+        'grievance_flags': list(TicketConfig.grievance_flags),
+        'generated_rights': dict(TicketConfig.generated_rights),
+        'unified_resolution_times': dict(TicketConfig.unified_resolution_times),
+    }
+
+
+def restore_grievance_config(snapshot):
+    """Restore TicketConfig class-level state from a snapshot."""
+    for attr, value in snapshot.items():
+        setattr(TicketConfig, attr, value)
+
+
 def setup_grievance_config(cfg):
     """Process a grievance config dict and generate rights on TicketConfig.
 
     Handles the standard sequence: process categories, process flags,
     load config, and generate automatic rights.
+
+    Returns:
+        dict: Snapshot of previous state (pass to restore_grievance_config).
     """
+    snapshot = save_grievance_config()
     TicketConfig._TicketConfig__process_unified_categories(cfg)
     TicketConfig._TicketConfig__process_unified_flags(cfg)
     TicketConfig._TicketConfig__load_config(cfg)
     GrievanceRightsManager.generate_automatic_rights(TicketConfig)
+    return snapshot
 
 
 def assign_rights_to_user(user, right_ids, role_name=None):

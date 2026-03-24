@@ -11,17 +11,20 @@ from graphql import ResolveInfo
 from core.test_helpers import create_test_interactive_user
 from grievance_social_protection.models import Ticket, Comment
 from grievance_social_protection.tests.test_helpers import (
-    setup_grievance_config, assign_rights_to_user, collect_all_rights,
+    setup_grievance_config, restore_grievance_config,
+    assign_rights_to_user, collect_all_rights,
 )
 
 
 class ModelSecurityTest(TestCase):
     """Test security filtering at the model level"""
 
+    _config_snapshot = None
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls._setup_test_config()
+        cls._config_snapshot = cls._setup_test_config()
         cls._create_test_users()
         cls._create_test_tickets()
 
@@ -50,7 +53,7 @@ class ModelSecurityTest(TestCase):
                 }
             ]
         }
-        setup_grievance_config(cfg)
+        return setup_grievance_config(cfg)
 
     @classmethod
     def _create_test_users(cls):
@@ -123,6 +126,8 @@ class ModelSecurityTest(TestCase):
         """Clean up test data"""
         Comment.objects.filter(ticket__in=cls.tickets.values()).delete()
         Ticket.objects.filter(id__in=[t.id for t in cls.tickets.values()]).delete()
+        if cls._config_snapshot:
+            restore_grievance_config(cls._config_snapshot)
         super().tearDownClass()
 
     def test_ticket_security_with_row_security_enabled(self):

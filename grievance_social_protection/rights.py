@@ -217,7 +217,9 @@ class GrievanceRightsManager:
         """
         cleaned = cls.clean_name(name)
         # First convert to lowercase, then replace any non-alphanumeric character with underscore
-        return cls.NON_ALPHANUMERIC_RE.sub('_', cleaned.lower())
+        result = cls.NON_ALPHANUMERIC_RE.sub('_', cleaned.lower())
+        # Collapse consecutive underscores
+        return re.sub(r'_+', '_', result).strip('_')
 
     @classmethod
     def _generate_permission_fields(cls, perm_type, original_name, is_flag=False):
@@ -258,6 +260,6 @@ class GrievanceRightsManager:
         # Generate final codename and permission name with truncation
         codename = cls.truncate_with_template(codename_template, safe_name, cls.CODENAME_MAX_LENGTH)
         permission_name = cls.truncate_with_template(name_template, cls.clean_name(
-            original_name).replace('|', ' '), cls.PERMISSION_NAME_MAX_LENGTH)
+            original_name), cls.PERMISSION_NAME_MAX_LENGTH)
 
         return codename, permission_name, right_name

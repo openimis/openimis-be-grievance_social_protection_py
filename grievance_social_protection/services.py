@@ -129,8 +129,8 @@ class TicketService(BaseService):
     def _validate_access_control(self, obj_data, access_type=GrievanceAccessControl.PERM_CREATE):
         """Validate user has permission to use selected category and flags"""
         category = obj_data.get('category')
-        if category and TicketConfig.processed_categories:
-            if category not in TicketConfig.processed_categories:
+        if category and TicketConfig.grievance_types:
+            if category not in TicketConfig.grievance_types:
                 raise ValidationError(
                     f"Unknown category: '{category}'. "
                     f"Must be one of the configured grievance types."

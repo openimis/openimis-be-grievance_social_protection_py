@@ -97,7 +97,7 @@ class ConfigProcessingTest(TestCase):
         TicketConfig._TicketConfig__process_unified_categories(cfg)
 
         # Check flat list includes all levels - plus 'uncategorized' added by default
-        expected = {'uncategorized', 'parent', 'parent|child1', 'parent|child2', 'parent|child3'}
+        expected = {'uncategorized', 'parent', 'parent > child1', 'parent > child2', 'parent > child3'}
         self.assertEqual(set(cfg['grievance_types']), expected)
 
         processed = cfg['processed_categories']
@@ -105,24 +105,24 @@ class ConfigProcessingTest(TestCase):
         # Check parent
         self.assertEqual(processed['parent']['priority'], 'High')
         self.assertEqual(processed['parent']['children'], {
-            'child1': 'parent|child1',
-            'child2': 'parent|child2',
-            'child3': 'parent|child3'
+            'child1': 'parent > child1',
+            'child2': 'parent > child2',
+            'child3': 'parent > child3'
         })
 
         # Check child inheritance
-        self.assertEqual(processed['parent|child1']['parent'], 'parent')
-        self.assertEqual(processed['parent|child1']['default_flags'], ['important'])
-        self.assertEqual(processed['parent|child1']['permissions'], ['update'])
+        self.assertEqual(processed['parent > child1']['parent'], 'parent')
+        self.assertEqual(processed['parent > child1']['default_flags'], ['important'])
+        self.assertEqual(processed['parent > child1']['permissions'], ['update'])
 
-        self.assertEqual(processed['parent|child3']['default_flags'], ['important'])  # Inherited
-        self.assertEqual(processed['parent|child3']['permissions'], ['read', 'create'])  # Inherited
-        self.assertEqual(processed['parent|child3']['priority'], 'Critical')
+        self.assertEqual(processed['parent > child3']['default_flags'], ['important'])  # Inherited
+        self.assertEqual(processed['parent > child3']['permissions'], ['read', 'create'])  # Inherited
+        self.assertEqual(processed['parent > child3']['priority'], 'Critical')
 
         # Check simple string child
-        self.assertEqual(processed['parent|child2']['priority'], 'High')  # Inherited
-        self.assertEqual(processed['parent|child2']['permissions'], ['read', 'create'])  # Inherited from parent
-        self.assertEqual(processed['parent|child2']['default_flags'], ['important'])  # Inherited
+        self.assertEqual(processed['parent > child2']['priority'], 'High')  # Inherited
+        self.assertEqual(processed['parent > child2']['permissions'], ['read', 'create'])  # Inherited from parent
+        self.assertEqual(processed['parent > child2']['default_flags'], ['important'])  # Inherited
 
     def test_process_flags(self):
         """Test processing flag configurations"""
@@ -180,9 +180,9 @@ class ConfigProcessingTest(TestCase):
 
         # Check resolution times are stored
         self.assertEqual(processed['urgent']['resolution_times'], '1,0')
-        self.assertEqual(processed['urgent|very_urgent']['resolution_times'], '0,12')
+        self.assertEqual(processed['urgent > very_urgent']['resolution_times'], '0,12')
         # Child without resolution_times inherits from parent during processing
-        self.assertEqual(processed['urgent|less_urgent']['resolution_times'], '1,0')
+        self.assertEqual(processed['urgent > less_urgent']['resolution_times'], '1,0')
         # Simple category should not have resolution_times
         self.assertIsNone(processed['normal']['resolution_times'])
 

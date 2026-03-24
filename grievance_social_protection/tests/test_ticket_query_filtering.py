@@ -4,23 +4,29 @@ from core.test_helpers import create_test_interactive_user
 from grievance_social_protection.apps import TicketConfig
 from grievance_social_protection.models import Ticket
 from grievance_social_protection.tests.test_helpers import (
-    setup_grievance_config, assign_rights_to_user, get_rights, collect_all_rights,
+    setup_grievance_config, restore_grievance_config,
+    assign_rights_to_user, get_rights, collect_all_rights,
 )
 
 
 class TicketQueryFilteringTest(TestCase):
     """Test ticket queryset filtering based on permissions"""
 
+    _config_snapshot = None
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls._setup_test_config()
+        cls._config_snapshot = cls._setup_test_config()
         cls._create_test_users()
         cls._create_test_tickets()
 
     def setUp(self):
         # Reset config for each test
-        self._setup_test_config()
+        self._per_test_snapshot = self._setup_test_config()
+
+    def tearDown(self):
+        restore_grievance_config(self._per_test_snapshot)
 
     @classmethod
     def _setup_test_config(cls):
@@ -50,7 +56,7 @@ class TicketQueryFilteringTest(TestCase):
                 }
             ]
         }
-        setup_grievance_config(cfg)
+        return setup_grievance_config(cfg)
 
     @classmethod
     def _create_test_users(cls):
@@ -118,6 +124,8 @@ class TicketQueryFilteringTest(TestCase):
         """Clean up test data"""
         ticket_ids = [t.id for t in cls.tickets.values()]
         Ticket.objects.filter(id__in=ticket_ids).delete()
+        if cls._config_snapshot:
+            restore_grievance_config(cls._config_snapshot)
         super().tearDownClass()
 
     def test_filter_all_permissions(self):
@@ -197,7 +205,7 @@ class TicketQueryFilteringTest(TestCase):
 
         parent_ticket = Ticket(title='Parent', category='parent', resolution='5,0')
         parent_ticket.save(user=self.user_limited)
-        child_ticket = Ticket(title='Child', category='parent|child1', resolution='5,0')
+        child_ticket = Ticket(title='Child', category='parent > child1', resolution='5,0')
         child_ticket.save(user=self.user_limited)
 
         try:

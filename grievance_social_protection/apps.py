@@ -14,6 +14,7 @@ DEFAULT_STRING = 'Default'
 DEFAULT_TIME_RESOLUTION = '5,0'
 DEFAULT_GRIEVANCE_TYPE = 'uncategorized'
 VALID_PERMISSION_TYPES = frozenset({'restricted_read', 'read', 'create', 'update', 'delete'})
+CATEGORY_SEPARATOR = ' > '
 
 DEFAULT_CFG = {
     "default_validations_disabled": False,
@@ -251,7 +252,7 @@ class TicketConfig(AppConfig):
 
             if isinstance(item, str):
                 # Simple string format (backward compatible)
-                full_name = f"{parent_name}|{item}" if parent_name else item
+                full_name = f"{parent_name}{CATEGORY_SEPARATOR}{item}" if parent_name else item
                 processed_categories[full_name] = {
                     'priority': parent.get('priority', 'Medium'),
                     'permissions': list(parent.get('permissions', [])),
@@ -271,7 +272,7 @@ class TicketConfig(AppConfig):
                 if not cat_name:
                     raise ValueError("Each category dict in 'grievance_types' must have a 'name' field.")
 
-                full_name = f"{parent_name}|{cat_name}" if parent_name else cat_name
+                full_name = f"{parent_name}{CATEGORY_SEPARATOR}{cat_name}" if parent_name else cat_name
 
                 # Process permissions — copy to avoid mutating parent's list
                 permissions = list(item.get('permissions', parent.get('permissions', [])))
@@ -338,7 +339,7 @@ class TicketConfig(AppConfig):
                 for child in children:
                     child_full_name = process_category_item(child, full_name, category_info)
                     if child_full_name:
-                        child_short_name = child_full_name.split('|')[-1]
+                        child_short_name = child_full_name.split(CATEGORY_SEPARATOR)[-1]
                         category_info['children'][child_short_name] = child_full_name
 
                 return full_name

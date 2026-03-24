@@ -12,7 +12,8 @@ from grievance_social_protection.apps import TicketConfig
 from grievance_social_protection.gql_queries import TicketFilterSet, _ALWAYS_FILTERABLE
 from grievance_social_protection.models import Ticket
 from grievance_social_protection.tests.test_helpers import (
-    setup_grievance_config, assign_rights_to_user, get_rights,
+    setup_grievance_config, restore_grievance_config,
+    assign_rights_to_user, get_rights,
 )
 
 
@@ -34,13 +35,10 @@ class TicketFilterSetRestrictedFieldsTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self._saved_cats = TicketConfig.processed_categories
-        self._saved_flags = TicketConfig.processed_flags
-        self._setup_config()
+        self._snapshot = self._setup_config()
 
     def tearDown(self):
-        TicketConfig.processed_categories = self._saved_cats
-        TicketConfig.processed_flags = self._saved_flags
+        restore_grievance_config(self._snapshot)
         super().tearDown()
 
     def _setup_config(self):
@@ -55,7 +53,7 @@ class TicketFilterSetRestrictedFieldsTest(TestCase):
             ],
             'grievance_flags': [],
         }
-        setup_grievance_config(cfg)
+        snapshot = setup_grievance_config(cfg)
 
         cat_rights = get_rights('processed_categories', 'restricted_cat')
 
@@ -72,6 +70,8 @@ class TicketFilterSetRestrictedFieldsTest(TestCase):
                 [127000, cat_rights['read']],
                 role_name='FSFullRole',
             )
+
+        return snapshot
 
     # ── _get_restricted_fields tests ─────────────────────────────
 
@@ -146,15 +146,12 @@ class TicketFilterSetFilterQuerysetTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self._saved_cats = TicketConfig.processed_categories
-        self._saved_flags = TicketConfig.processed_flags
-        self._setup_config()
+        self._snapshot = self._setup_config()
         self._create_tickets()
 
     def tearDown(self):
         Ticket.objects.filter(code__startswith='FSTEST').delete()
-        TicketConfig.processed_categories = self._saved_cats
-        TicketConfig.processed_flags = self._saved_flags
+        restore_grievance_config(self._snapshot)
         super().tearDown()
 
     def _setup_config(self):
@@ -168,7 +165,7 @@ class TicketFilterSetFilterQuerysetTest(TestCase):
             ],
             'grievance_flags': [],
         }
-        setup_grievance_config(cfg)
+        snapshot = setup_grievance_config(cfg)
 
         cat_rights = get_rights('processed_categories', 'filter_cat')
 
@@ -185,6 +182,8 @@ class TicketFilterSetFilterQuerysetTest(TestCase):
                 [127000, cat_rights['read']],
                 role_name='FQFullRole',
             )
+
+        return snapshot
 
     def _create_tickets(self):
         self.ticket_match = Ticket(

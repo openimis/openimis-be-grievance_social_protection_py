@@ -11,7 +11,8 @@ from grievance_social_protection.models import Ticket
 from grievance_social_protection.schema import Query
 from grievance_social_protection.access_control import GrievanceAccessControl
 from grievance_social_protection.tests.test_helpers import (
-    setup_grievance_config, assign_rights_to_user, get_rights,
+    setup_grievance_config, restore_grievance_config,
+    assign_rights_to_user, get_rights,
 )
 
 
@@ -34,7 +35,7 @@ class RestrictedViewTest(openIMISGraphQLTestCase):
     def setUp(self):
         """Set up test data"""
         super().setUp()
-        self._setup_test_config()
+        self._snapshot = self._setup_test_config()
         self._assign_rights_to_users()
         self._create_test_ticket()
 
@@ -63,7 +64,7 @@ class RestrictedViewTest(openIMISGraphQLTestCase):
                 'public'
             ]
         }
-        setup_grievance_config(cfg)
+        return setup_grievance_config(cfg)
 
     def _assign_rights_to_users(self):
         """Assign rights to test users through roles"""
@@ -126,11 +127,12 @@ class RestrictedViewTest(openIMISGraphQLTestCase):
         self.public_ticket = public_ticket
 
     def tearDown(self):
-        """Clean up test data"""
+        """Clean up test data and restore config"""
         if hasattr(self, 'ticket'):
             self.ticket.delete(user=self.user_manager.user)
         if hasattr(self, 'public_ticket'):
             self.public_ticket.delete(user=self.user_manager.user)
+        restore_grievance_config(self._snapshot)
         super().tearDown()
 
     def _execute_ticket_query(self, user):
@@ -282,7 +284,7 @@ class RestrictedViewIntegrationTest(TestCase):
     def setUp(self):
         """Set up test environment"""
         self.user = create_test_interactive_user(username='test_rights_user', roles=[1])
-        self._setup_config_and_rights()
+        self._snapshot = self._setup_config_and_rights()
 
     def _setup_config_and_rights(self):
         """Set up configuration and create rights"""
@@ -292,7 +294,7 @@ class RestrictedViewIntegrationTest(TestCase):
                 'permissions': ['restricted_read', 'read', 'create']
             }]
         }
-        setup_grievance_config(cfg)
+        return setup_grievance_config(cfg)
 
     def test_rights_based_filtering(self):
         """Test that rights-based filtering works correctly"""
@@ -325,4 +327,5 @@ class RestrictedViewIntegrationTest(TestCase):
 
     def tearDown(self):
         """Clean up test data"""
+        restore_grievance_config(self._snapshot)
         super().tearDown()
