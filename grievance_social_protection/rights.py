@@ -7,6 +7,7 @@ import re
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction, IntegrityError
+from .apps import DEFAULT_CFG
 from .models import Ticket
 
 logger = logging.getLogger(__name__)
@@ -167,10 +168,12 @@ class GrievanceRightsManager:
                     grouped_rights[right_name] = []
                 grouped_rights[right_name].append(right_id)
 
-            # Set as class attribute only - do not mutate the module-level DEFAULT_CFG
-            # to avoid shared state issues across concurrent processes
+            # Set as class attribute AND inject into DEFAULT_CFG so that
+            # core.utils.collect_all_gql_permissions() discovers them for
+            # the role configuration rights dropdown.
             for right_name, right_ids in grouped_rights.items():
                 setattr(app_config, right_name, right_ids)
+                DEFAULT_CFG[right_name] = [str(rid) for rid in right_ids]
 
     @classmethod
     def _get_next_available_id(cls, perm_type, used_ids):
