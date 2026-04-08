@@ -1,4 +1,3 @@
-from django.test import TestCase
 from core.models import MutationLog
 from graphene import Schema
 from graphene.test import Client
@@ -16,8 +15,8 @@ from grievance_social_protection.tests.test_helpers import (
 
 from core.models.openimis_graphql_test_case import openIMISGraphQLTestCase, BaseTestContext
 
-class GQLTicketReopenTestCase(openIMISGraphQLTestCase):
 
+class GQLTicketReopenTestCase(openIMISGraphQLTestCase):
 
     user = None
     status = None

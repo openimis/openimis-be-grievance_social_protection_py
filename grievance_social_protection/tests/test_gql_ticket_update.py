@@ -1,4 +1,3 @@
-from django.test import TestCase
 from core.models import MutationLog
 from graphene import Schema
 from graphene.test import Client
@@ -10,7 +9,6 @@ from core.models.openimis_graphql_test_case import openIMISGraphQLTestCase, Base
 
 
 class GQLTicketUpdateTestCase(openIMISGraphQLTestCase):
-
 
     user = None
 

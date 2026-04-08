@@ -1,5 +1,4 @@
 from django.apps import apps
-from django.test import TestCase
 
 from graphene import Schema
 from graphene.test import Client
@@ -15,8 +14,8 @@ from grievance_social_protection.tests.test_helpers import create_ticket, create
 from core.models.openimis_graphql_test_case import openIMISGraphQLTestCase, BaseTestContext
 from uuid import uuid4
 
-class GQLTicketCommentCreateTestCase(openIMISGraphQLTestCase):
 
+class GQLTicketCommentCreateTestCase(openIMISGraphQLTestCase):
 
     user = None
 

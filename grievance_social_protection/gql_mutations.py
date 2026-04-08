@@ -31,7 +31,7 @@ class CreateTicketInputType(OpenIMISMutation.Input):
     status = graphene.Field(TicketStatusEnum, required=False)
     priority = graphene.String(required=False)
     due_date = graphene.Date(required=False)
-    category = graphene.String(required=True)
+    category = graphene.String(required=False)
     flags = graphene.String(required=False)
     channel = graphene.String(required=False)
     resolution = graphene.String(required=False)
@@ -219,7 +219,7 @@ class ReopenTicketMutation(BaseHistoryModelUpdateMutationMixin, BaseMutation):
         if client_mutation_id:
             ticket_id = data.get('id')
             ticket = Ticket.objects.get(id=ticket_id)
-            TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, Ticket=ticket)
+            TicketMutation.object_mutated(user, client_mutation_id=client_mutation_id, ticket=ticket)
 
         if not response['success']:
             return response

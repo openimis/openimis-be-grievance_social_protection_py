@@ -8,11 +8,20 @@ import graphene_django_optimizer as gql_optimizer
 
 from core.utils import append_validity_filter
 from .apps import MODULE_NAME
+from .access_control import GrievanceAccessControl
 
-from .gql_queries import *
-from .gql_mutations import *
+from .gql_queries import (
+    TicketGQLType, CommentGQLType, GrievanceTypeConfigurationGQLType,
+)
+from .gql_mutations import (
+    CreateTicketMutation, UpdateTicketMutation, DeleteTicketMutation,
+    CreateCommentMutation, ResolveGrievanceByCommentMutation, ReopenTicketMutation,
+)
+from .models import Ticket, Comment, TicketMutation
+from .apps import TicketConfig
+from .validations import user_associated_with_ticket
+from django.core.exceptions import PermissionDenied
 from django.utils.translation import gettext_lazy as _
-
 
 
 class Query(graphene.ObjectType):
@@ -54,9 +63,13 @@ class Query(graphene.ObjectType):
     def resolve_ticket_details(self, info, **kwargs):
         if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
             raise PermissionDenied(_("unauthorized"))
-        return gql_optimizer.query(
-            Ticket.objects.filter(*append_validity_filter(**kwargs)).all().order_by('ticket_title', ), info
-        )
+
+        query = Ticket.objects.filter(*append_validity_filter(**kwargs)).all().order_by('title')
+
+        # Apply category and flag permission filtering
+        query = GrievanceAccessControl.filter_ticket_queryset(query, info.context.user)
+
+        return gql_optimizer.query(query, info)
 
     def resolve_tickets(self, info, **kwargs):
         """
@@ -82,6 +95,9 @@ class Query(graphene.ObjectType):
         else:
             query = model.objects.filter(*filters, is_deleted=False).all()
 
+        # Apply category and flag permission filtering
+        query = GrievanceAccessControl.filter_ticket_queryset(query, info.context.user)
+
         return gql_optimizer.query(query, info)
 
     def resolve_ticketsStr(self, info, **kwargs):
@@ -106,12 +122,16 @@ class Query(graphene.ObjectType):
         # if str is not None:
         #     filters += [Q(code__icontains=str) | Q(name__icontains=str)]
 
-        return gql_optimizer.query(Ticket.objects.filter(*filters).all(), info)
+        query = Ticket.objects.filter(*filters).all()
+
+        # Apply category and flag permission filtering
+        query = GrievanceAccessControl.filter_ticket_queryset(query, info.context.user)
+
+        return gql_optimizer.query(query, info)
 
     # def resolve_claim_attachments(self, info, **kwargs):
     #     if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
     #         raise PermissionDenied(_("unauthorized"))
-
 
     def resolve_grievance_config(self, info, **kwargs):
         user = info.context.user
