@@ -10,7 +10,11 @@ from grievance_social_protection.tests.data import (
     service_add_ticket_payload_bad_resolution_hour,
     service_update_ticket_payload
 )
-from grievance_social_protection.tests.test_helpers import create_ticket
+from grievance_social_protection.apps import DEFAULT_CFG
+from grievance_social_protection.tests.test_helpers import (
+    create_ticket,
+    setup_grievance_config,
+)
 from core.test_helpers import LogInHelper
 from django.utils.translation import gettext as _
 
@@ -24,6 +28,7 @@ class TicketServiceTest(TestCase):
     def setUpClass(cls):
         super().setUpClass()
 
+        setup_grievance_config(DEFAULT_CFG)
         cls.user = LogInHelper().get_or_create_user_api()
         cls.service = TicketService(cls.user)
         cls.query_all = Ticket.objects.filter(is_deleted=False)

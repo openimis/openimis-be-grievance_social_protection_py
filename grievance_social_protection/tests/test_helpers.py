@@ -1,3 +1,5 @@
+import copy
+
 from core.models import Role, RoleRight, UserRole
 from core.test_helpers import create_test_interactive_user, create_test_role
 from grievance_social_protection.apps import TicketConfig
@@ -69,6 +71,7 @@ def setup_grievance_config(cfg):
     Returns:
         dict: Snapshot of previous state (pass to restore_grievance_config).
     """
+    cfg = copy.deepcopy(cfg)
     snapshot = save_grievance_config()
     TicketConfig._TicketConfig__process_unified_categories(cfg)
     TicketConfig._TicketConfig__process_unified_flags(cfg)
