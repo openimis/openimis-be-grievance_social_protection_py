@@ -241,9 +241,6 @@ class TicketConfig(AppConfig):
         references a flag defined in grievance_flags.
         """
         grievance_flags = cfg.get('grievance_flags', [])
-        if not grievance_flags:
-            return
-
         processed_categories = cfg.get('processed_categories', {})
         for category_name, category_info in processed_categories.items():
             for flag in category_info.get('default_flags', []):

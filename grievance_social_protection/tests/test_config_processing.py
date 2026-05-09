@@ -216,7 +216,7 @@ class ConfigProcessingTest(TestCase):
         self.assertEqual(unified['legacy_cat'], '4,0')    # From default_resolution
 
     def test_category_default_flags_must_exist_in_grievance_flags(self):
-        """Regression: saving config where a category references an undefined default flag must fail"""
+        """Saving config where a category references an undefined default flag must fail"""
         invalid_config = {
             "grievance_types": [
                 {
@@ -263,7 +263,7 @@ class ConfigProcessingTest(TestCase):
         mc.delete()
 
     def test_nested_category_inherited_default_flags_must_exist(self):
-        """Regression: inherited default_flags from parent categories must also be validated on save"""
+        """Inherited default_flags from parent categories must also be validated on save"""
         invalid_config = {
             "grievance_types": [
                 {
@@ -286,6 +286,31 @@ class ConfigProcessingTest(TestCase):
             mc.save()
 
         self.assertIn('nonexistent', str(ctx.exception))
+
+    def test_default_flags_with_no_grievance_flags_configured(self):
+        """default_flags on a category with no grievance_flags configured must fail"""
+        invalid_config = {
+            "grievance_types": [
+                {
+                    "name": "complaint",
+                    "default_flags": ["urgent"]
+                }
+            ],
+            "grievance_flags": []
+        }
+
+        mc = ModuleConfiguration(
+            module="grievance_social_protection",
+            layer="be",
+            version="1.0.0",
+            config=json.dumps(invalid_config),
+        )
+
+        with self.assertRaises(ValidationError) as ctx:
+            mc.save()
+
+        self.assertIn('urgent', str(ctx.exception))
+        self.assertIn('complaint', str(ctx.exception))
 
     def test_admin_form_rejects_invalid_config(self):
         """Regression: admin form should display validation error inline, not save"""
