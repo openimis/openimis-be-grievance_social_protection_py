@@ -128,16 +128,16 @@ class TicketConfig(AppConfig):
         self.__validate_grievance_dict_fields(cfg, 'default_resolution')
         self.__validate_grievance_default_resolution_time(cfg)
 
-    def _parse_config(self, instance):
+    def _merge_with_defaults(self, instance):
         return {**copy.deepcopy(DEFAULT_CFG), **instance._cfg}
 
     def _validate_module_config(self, instance):
-        cfg = self._parse_config(instance)
+        cfg = self._merge_with_defaults(instance)
         self.__process_config(cfg)
         self.__validate_config(cfg)
 
     def _reload_module_config(self, instance):
-        cfg = self._parse_config(instance)
+        cfg = self._merge_with_defaults(instance)
         self.__process_config(cfg)
         self.__load_config(cfg)
 
