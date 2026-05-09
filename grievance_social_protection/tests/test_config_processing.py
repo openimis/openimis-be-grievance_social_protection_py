@@ -1,5 +1,9 @@
+import json
+
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
+from core.models import ModuleConfiguration
 from grievance_social_protection.apps import TicketConfig
 
 
@@ -210,3 +214,102 @@ class ConfigProcessingTest(TestCase):
         unified = cfg.get('unified_resolution_times', {})
         self.assertEqual(unified['priority_cat'], '2,0')  # Category-specific wins
         self.assertEqual(unified['legacy_cat'], '4,0')    # From default_resolution
+
+    def test_category_default_flags_must_exist_in_grievance_flags(self):
+        """Regression: saving config where a category references an undefined default flag must fail"""
+        invalid_config = {
+            "grievance_types": [
+                {
+                    "name": "complaint",
+                    "default_flags": ["urgent"]
+                }
+            ],
+            "grievance_flags": ["sensitive"]
+        }
+
+        mc = ModuleConfiguration(
+            module="grievance_social_protection",
+            layer="be",
+            version="1.0.0",
+            config=json.dumps(invalid_config),
+        )
+
+        with self.assertRaises(ValidationError) as ctx:
+            mc.save()
+
+        self.assertIn('urgent', str(ctx.exception))
+        self.assertIn('complaint', str(ctx.exception))
+
+    def test_category_default_flags_valid_config_saves(self):
+        """Saving config where default_flags are all defined in grievance_flags should succeed"""
+        valid_config = {
+            "grievance_types": [
+                {
+                    "name": "complaint",
+                    "default_flags": ["urgent"]
+                }
+            ],
+            "grievance_flags": ["urgent", "sensitive"]
+        }
+
+        mc = ModuleConfiguration(
+            module="grievance_social_protection",
+            layer="be",
+            version="1.0.0",
+            config=json.dumps(valid_config),
+        )
+        mc.save()
+        self.assertIsNotNone(mc.pk)
+        mc.delete()
+
+    def test_nested_category_inherited_default_flags_must_exist(self):
+        """Regression: inherited default_flags from parent categories must also be validated on save"""
+        invalid_config = {
+            "grievance_types": [
+                {
+                    "name": "parent",
+                    "default_flags": ["nonexistent"],
+                    "children": ["child"]
+                }
+            ],
+            "grievance_flags": ["other_flag"]
+        }
+
+        mc = ModuleConfiguration(
+            module="grievance_social_protection",
+            layer="be",
+            version="1.0.0",
+            config=json.dumps(invalid_config),
+        )
+
+        with self.assertRaises(ValidationError) as ctx:
+            mc.save()
+
+        self.assertIn('nonexistent', str(ctx.exception))
+
+    def test_admin_form_rejects_invalid_config(self):
+        """Regression: admin form should display validation error inline, not save"""
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.admin.options import ModelAdmin
+
+        invalid_config = {
+            "grievance_types": [
+                {
+                    "name": "complaint",
+                    "default_flags": ["urgent"]
+                }
+            ],
+            "grievance_flags": ["sensitive"]
+        }
+
+        admin = ModelAdmin(ModuleConfiguration, AdminSite())
+        Form = admin.get_form(request=None)
+        form = Form(data={
+            'module': 'grievance_social_protection',
+            'layer': 'be',
+            'version': '1.0.0',
+            'config': json.dumps(invalid_config),
+        })
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('urgent', str(form.errors))

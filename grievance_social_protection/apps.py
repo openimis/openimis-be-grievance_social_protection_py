@@ -1,9 +1,11 @@
+import json
 import logging
 import sys
 import os
 
 from django.apps import AppConfig
 from django.db import OperationalError, ProgrammingError
+from django.core.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -95,14 +97,13 @@ class TicketConfig(AppConfig):
 
     def ready(self):
         from core.models import ModuleConfiguration
+        from core.module_config_registry import register_validator, register_reloader
+
         cfg = ModuleConfiguration.get_or_default(MODULE_NAME, DEFAULT_CFG)
-        self.__process_unified_categories(cfg)
-        self.__process_unified_flags(cfg)
-        self.__validate_grievance_dict_fields(cfg, 'default_responses')
-        self.__validate_grievance_dict_fields(cfg, 'grievance_anonymized_fields')
-        self.__validate_grievance_dict_fields(cfg, 'default_resolution')
-        self.__validate_grievance_default_resolution_time(cfg)
+        self.__process_config(cfg)
+        self.__validate_config(cfg)
         self.__load_config(cfg)
+
         # Generate rights only when the database is available and ready.
         # Skip during migrations, when NO_DATABASE is set, or when
         # core tables (django_content_type, auth_permission) don't exist yet.
@@ -112,6 +113,34 @@ class TicketConfig(AppConfig):
                 GrievanceRightsManager.generate_automatic_rights(TicketConfig)
             except (OperationalError, ProgrammingError):
                 logger.info("Database tables not ready, skipping automatic rights generation.")
+
+        register_validator(MODULE_NAME, self._validate_module_config)
+        register_reloader(MODULE_NAME, self._reload_module_config)
+
+    def __process_config(self, cfg):
+        self.__process_unified_categories(cfg)
+        self.__process_unified_flags(cfg)
+
+    def __validate_config(self, cfg):
+        self.__validate_category_default_flags(cfg)
+        self.__validate_grievance_dict_fields(cfg, 'default_responses')
+        self.__validate_grievance_dict_fields(cfg, 'grievance_anonymized_fields')
+        self.__validate_grievance_dict_fields(cfg, 'default_resolution')
+        self.__validate_grievance_default_resolution_time(cfg)
+
+    def _parse_config(self, instance):
+        db_config = json.loads(instance.config)
+        return {**DEFAULT_CFG, **db_config}
+
+    def _validate_module_config(self, instance):
+        cfg = self._parse_config(instance)
+        self.__process_config(cfg)
+        self.__validate_config(cfg)
+
+    def _reload_module_config(self, instance):
+        cfg = self._parse_config(instance)
+        self.__process_config(cfg)
+        self.__load_config(cfg)
 
     @classmethod
     def __validate_grievance_dict_fields(cls, cfg, field_name):
@@ -151,7 +180,7 @@ class TicketConfig(AppConfig):
             for key in dict_field:
                 value = dict_field[key]
                 if value in ['', None]:
-                    raise ValueError(
+                    raise ValidationError(
                         f"'{key}' in 'default_resolution' has no value. "
                         f"Expected format: 'days,hours' (e.g. '{DEFAULT_TIME_RESOLUTION}')."
                     )
@@ -183,14 +212,8 @@ class TicketConfig(AppConfig):
 
     @classmethod
     def __validate_resolution_time_format(cls, value, context=""):
-        """
-        Validate a single resolution time format.
-
-        Raises:
-            ValueError: If the resolution time format is invalid.
-        """
         if ',' not in value:
-            raise ValueError(
+            raise ValidationError(
                 f"Invalid resolution time format for {context}. "
                 "Configuration should contain two integers representing days and hours, "
                 "separated by a comma."
@@ -200,19 +223,37 @@ class TicketConfig(AppConfig):
             parts = value.split(',')
             days = int(parts[0])
             hours = int(parts[1])
-
-            if not (0 <= days < 99 and 0 <= hours < 24):
-                raise ValueError(
-                    f"Invalid resolution time values for {context}. "
-                    "Days must be between 0 and 99, and hours must be between 0 and 24."
-                )
-        except (ValueError, IndexError) as e:
-            if isinstance(e, ValueError) and "Invalid resolution time" in str(e):
-                raise
-            raise ValueError(
+        except (ValueError, IndexError):
+            raise ValidationError(
                 f"Invalid resolution time format for {context}. "
                 "Expected format: 'days,hours' where both are integers."
             )
+
+        if not (0 <= days < 99 and 0 <= hours < 24):
+            raise ValidationError(
+                f"Invalid resolution time values for {context}. "
+                "Days must be between 0 and 99, and hours must be between 0 and 24."
+            )
+
+    @classmethod
+    def __validate_category_default_flags(cls, cfg):
+        """
+        Validate that every default_flags entry in grievance_types
+        references a flag defined in grievance_flags.
+        """
+        grievance_flags = cfg.get('grievance_flags', [])
+        if not grievance_flags:
+            return
+
+        processed_categories = cfg.get('processed_categories', {})
+        for category_name, category_info in processed_categories.items():
+            for flag in category_info.get('default_flags', []):
+                if flag not in grievance_flags:
+                    raise ValidationError(
+                        f"Category '{category_name}' references default flag '{flag}' "
+                        f"which is not defined in grievance_flags. "
+                        f"Available flags: {grievance_flags}"
+                    )
 
     @classmethod
     def __process_unified_categories(cls, cfg):
@@ -270,7 +311,7 @@ class TicketConfig(AppConfig):
                 # Enhanced dict format with permissions
                 cat_name = item.get('name')
                 if not cat_name:
-                    raise ValueError("Each category dict in 'grievance_types' must have a 'name' field.")
+                    raise ValidationError("Each category dict in 'grievance_types' must have a 'name' field.")
 
                 full_name = f"{parent_name}{CATEGORY_SEPARATOR}{cat_name}" if parent_name else cat_name
 
@@ -278,7 +319,7 @@ class TicketConfig(AppConfig):
                 permissions = list(item.get('permissions', parent.get('permissions', [])))
                 invalid = set(permissions) - VALID_PERMISSION_TYPES
                 if invalid:
-                    raise ValueError(
+                    raise ValidationError(
                         f"Category '{cat_name}' has invalid permission types: {invalid}. "
                         f"Allowed: {sorted(VALID_PERMISSION_TYPES)}"
                     )
@@ -303,7 +344,7 @@ class TicketConfig(AppConfig):
                         # Check if child tries to expose fields hidden by parent
                         invalid_fields = child_visible - parent_visible
                         if invalid_fields:
-                            raise ValueError(
+                            raise ValidationError(
                                 f"Category '{cat_name}' cannot make fields {invalid_fields} visible — "
                                 f"they are not in parent '{parent_name}' visible_fields."
                             )
@@ -379,13 +420,13 @@ class TicketConfig(AppConfig):
                 # Enhanced dict format with permissions
                 flag_name = flag.get('name')
                 if not flag_name:
-                    raise ValueError("Each flag dict in 'grievance_flags' must have a 'name' field.")
+                    raise ValidationError("Each flag dict in 'grievance_flags' must have a 'name' field.")
 
                 # Process permissions
                 permissions = flag.get('permissions', [])
                 invalid = set(permissions) - VALID_PERMISSION_TYPES
                 if invalid:
-                    raise ValueError(
+                    raise ValidationError(
                         f"Flag '{flag_name}' has invalid permission types: {invalid}. "
                         f"Allowed: {sorted(VALID_PERMISSION_TYPES)}"
                     )
