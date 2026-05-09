@@ -231,7 +231,7 @@ class TicketConfig(AppConfig):
         if not (0 <= days < 99 and 0 <= hours < 24):
             raise ValidationError(
                 f"Invalid resolution time values for {context}. "
-                "Days must be between 0 and 99, and hours must be between 0 and 24."
+                "Days must be 0-98 and hours must be 0-23."
             )
 
     @classmethod
