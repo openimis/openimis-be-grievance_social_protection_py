@@ -28,7 +28,7 @@ class TicketServiceTest(TestCase):
     def setUpClass(cls):
         super().setUpClass()
 
-        setup_grievance_config(dict(DEFAULT_CFG))
+        setup_grievance_config(DEFAULT_CFG)
         cls.user = LogInHelper().get_or_create_user_api()
         cls.service = TicketService(cls.user)
         cls.query_all = Ticket.objects.filter(is_deleted=False)

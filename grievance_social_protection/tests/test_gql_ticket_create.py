@@ -27,7 +27,7 @@ class GQLTicketCreateTestCase(openIMISGraphQLTestCase):
     @classmethod
     def setUpClass(cls):
         super(GQLTicketCreateTestCase, cls).setUpClass()
-        setup_grievance_config(dict(DEFAULT_CFG))
+        setup_grievance_config(DEFAULT_CFG)
         cls.user = create_test_grievance_user(username='user_authorized')
 
         gql_schema = Schema(

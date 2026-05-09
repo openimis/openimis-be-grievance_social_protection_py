@@ -30,7 +30,7 @@ class GQLTicketUpdateTestCase(openIMISGraphQLTestCase):
     @classmethod
     def setUpClass(cls):
         super(GQLTicketUpdateTestCase, cls).setUpClass()
-        setup_grievance_config(dict(DEFAULT_CFG))
+        setup_grievance_config(DEFAULT_CFG)
         cls.user = create_test_grievance_user(username='user_authorized')
         cls.existing_ticket = create_ticket(cls.user)
 
