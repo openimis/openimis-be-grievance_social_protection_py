@@ -1,4 +1,4 @@
-import json
+import copy
 import logging
 import sys
 import os
@@ -129,8 +129,7 @@ class TicketConfig(AppConfig):
         self.__validate_grievance_default_resolution_time(cfg)
 
     def _parse_config(self, instance):
-        db_config = json.loads(instance.config)
-        return {**DEFAULT_CFG, **db_config}
+        return {**copy.deepcopy(DEFAULT_CFG), **instance._cfg}
 
     def _validate_module_config(self, instance):
         cfg = self._parse_config(instance)
