@@ -2,7 +2,6 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.test import TestCase
-from core.test_helpers import create_test_interactive_user
 
 from grievance_social_protection.access_control import GrievanceAccessControl
 from grievance_social_protection.apps import TicketConfig
@@ -10,7 +9,7 @@ from grievance_social_protection.models import Ticket
 from grievance_social_protection.rights import GrievanceRightsManager
 from grievance_social_protection.tests.test_helpers import (
     setup_grievance_config, restore_grievance_config,
-    assign_rights_to_user, get_rights, collect_all_rights,
+    assign_rights_to_user, create_user_with_rights, get_rights, collect_all_rights,
 )
 import grievance_social_protection
 
@@ -21,11 +20,13 @@ class GrievanceAccessControlTest(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user_with_all_rights = create_test_interactive_user(username='user_all_rights', roles=[1])
-        cls.user_no_rights = create_test_interactive_user(username='user_no_rights', roles=[1])
-        cls.user_restricted_viewer = create_test_interactive_user(username='user_restricted', roles=[1])
-        cls.user_full_viewer = create_test_interactive_user(username='user_viewer', roles=[1])
-        cls.user_manager = create_test_interactive_user(username='user_manager', roles=[1])
+        # Each role starts empty; _assign_rights_to_users grants rights onto
+        # these same named roles once the config has generated them.
+        cls.user_with_all_rights = create_user_with_rights('user_all_rights', [], 'ACAllRights')
+        cls.user_no_rights = create_user_with_rights('user_no_rights', [], 'ACNoRights')
+        cls.user_restricted_viewer = create_user_with_rights('user_restricted', [], 'ACRestrictedViewer')
+        cls.user_full_viewer = create_user_with_rights('user_viewer', [], 'ACViewer')
+        cls.user_manager = create_user_with_rights('user_manager', [], 'ACManager')
 
     def setUp(self):
         """Set up test configuration before each test"""
