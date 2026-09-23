@@ -7,6 +7,8 @@ from django.apps import AppConfig
 from django.db import OperationalError, ProgrammingError
 from django.core.exceptions import ValidationError
 
+from core.rights_declaration import RightsDeclaration
+
 logger = logging.getLogger(__name__)
 
 MODULE_NAME = "grievance_social_protection"
@@ -18,16 +20,60 @@ DEFAULT_GRIEVANCE_TYPE = 'uncategorized'
 VALID_PERMISSION_TYPES = frozenset({'restricted_read', 'read', 'create', 'update', 'delete'})
 CATEGORY_SEPARATOR = ' > '
 
+# ---------------------------------------------------------------------------
+# Droits STATIQUES du module : 127000-127006.
+#
+# Frontiere avec le dynamique, a ne pas franchir : la plage 127100-127999 est
+# reservee a `rights.GrievanceRightsManager`, qui cree une permission django par
+# categorie de grief et par type d'acces (read / restricted_read / create /
+# update / delete) a partir de `grievance_types`, puis pose le resultat en
+# attribut `*_category_tickets_perms` / `*_flagged_tickets_perms` sur cette
+# AppConfig. Ces droits-la ne sont PAS declares ici : leur identifiant est
+# attribue a l'execution, il depend de la configuration du deploiement, et
+# `core/rights_sync.py` connait et respecte ce cas (il lit les permissions
+# generees sous le ContentType de Ticket, sans jamais les ecrire).
+# Ce qui est declare ci-dessous est donc exactement ce qui est fixe dans le code.
+#
+# `resolve` est une action metier et non un `update` : resoudre un grief par un
+# commentaire ferme le ticket, c'est un pouvoir separe de la modification.
+DJANGO_PERMS = {
+    "ticket": {
+        "query": ("grievance_social_protection.view_ticket", 127000),
+        "create": ("grievance_social_protection.add_ticket", 127001),
+        "update": ("grievance_social_protection.change_ticket", 127002),
+        "delete": ("grievance_social_protection.delete_ticket", 127003),
+        "resolve": ("grievance_social_protection.resolve_ticket", 127006),
+    },
+    # Le commentaire a ses propres droits de lecture et de creation (127004 /
+    # 127005) : on peut commenter un grief sans pouvoir le modifier. Il n'a en
+    # revanche pas de droit de modification ni de suppression propre - voir le
+    # `scope_parent` declare sur le modele.
+    "comment": {
+        "query": ("grievance_social_protection.view_comment", 127004),
+        "create": ("grievance_social_protection.add_comment", 127005),
+    },
+}
+
+_PERM_CFG = {
+    "gql_query_tickets_perms": ("ticket", "query"),
+    "gql_mutation_create_tickets_perms": ("ticket", "create"),
+    "gql_mutation_update_tickets_perms": ("ticket", "update"),
+    "gql_mutation_delete_tickets_perms": ("ticket", "delete"),
+    "gql_mutation_resolve_grievance_perms": ("ticket", "resolve"),
+    "gql_query_comments_perms": ("comment", "query"),
+    "gql_mutation_create_comment_perms": ("comment", "create"),
+}
+
+RIGHTS = RightsDeclaration(MODULE_NAME, DJANGO_PERMS, _PERM_CFG)
+
+perms = RIGHTS.perms
+django_perms = RIGHTS.django_perm_names
+configured_perms = RIGHTS.configured
+require = RIGHTS.require
+
 DEFAULT_CFG = {
     "default_validations_disabled": False,
     "default_grievance_type": DEFAULT_GRIEVANCE_TYPE,
-    "gql_query_tickets_perms": ["127000"],
-    "gql_query_comments_perms": ["127004"],
-    "gql_mutation_create_tickets_perms": ["127001"],
-    "gql_mutation_update_tickets_perms": ["127002"],
-    "gql_mutation_delete_tickets_perms": ["127003"],
-    "gql_mutation_create_comment_perms": ["127005"],
-    "gql_mutation_resolve_grievance_perms": ["127006"],
     "tickets_attachments_root_path": None,
 
     "grievance_types": [DEFAULT_STRING, 'Category A', 'Category B'],
@@ -47,13 +93,37 @@ DEFAULT_CFG = {
 class TicketConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = MODULE_NAME
-    gql_query_tickets_perms = []
-    gql_query_comments_perms = []
-    gql_mutation_create_tickets_perms = []
-    gql_mutation_update_tickets_perms = []
-    gql_mutation_delete_tickets_perms = []
-    gql_mutation_resolve_grievance_perms = []
-    gql_mutation_create_comment_perms = []
+    # Rights: constants, no longer overridable. They go neither through DEFAULT_CFG
+    # nor through ready(): `ModuleConfiguration.get_or_default` now ignores any
+    # `_perms` key stored in the database.
+    gql_query_tickets_perms = RIGHTS.perms("ticket", "query")
+    gql_mutation_create_tickets_perms = RIGHTS.perms("ticket", "create")
+    gql_mutation_update_tickets_perms = RIGHTS.perms("ticket", "update")
+    gql_mutation_delete_tickets_perms = RIGHTS.perms("ticket", "delete")
+    gql_mutation_resolve_grievance_perms = RIGHTS.perms("ticket", "resolve")
+
+    gql_query_comments_perms = RIGHTS.perms("comment", "query")
+    gql_mutation_create_comment_perms = RIGHTS.perms("comment", "create")
+
+    # Droits DYNAMIQUES, pre-poses. Ils appartiennent a la plage 127100-127999 de
+    # `GrievanceRightsManager` et non a `DJANGO_PERMS`: ce sont les deux droits
+    # ('read' et 'update') de la categorie par defaut `uncategorized`, que
+    # `__process_unified_categories` insere en tete de `grievance_types` quand le
+    # deploiement ne la nomme pas. Ils sont ecrits ici pour que l'ecran de
+    # configuration des roles et `permissions_map.json` les connaissent avant le
+    # premier `ready()`; celui-ci les remplace par `setattr` avec les
+    # identifiants reellement alloues en base.
+    #
+    # Ils ne peuvent PAS entrer dans `DJANGO_PERMS`: 127100 et 127102 ne sont
+    # exacts que si `uncategorized` est la premiere categorie a demander 'read'
+    # et 'update'. L'allocation (`_get_next_available_id`) part de 127100+suffixe
+    # et avance de 10 dans l'ordre de parcours de `processed_categories`: deux
+    # deploiements ayant les memes categories dans un ordre different
+    # n'attribuent pas les memes identifiants. Declarer ces entiers comme fixes
+    # ferait ecrire a `core/rights_sync.py` une correspondance fausse.
+    gql_query_uncategorized_category_tickets_perms = [127100]
+    gql_mutation_update_uncategorized_category_tickets_perms = [127102]
+
     tickets_attachments_root_path = None
 
     grievance_types = []
@@ -81,10 +151,10 @@ class TicketConfig(AppConfig):
         """
         all_perms = {}
 
-        # Start with static permissions from DEFAULT_CFG
-        for key, value in DEFAULT_CFG.items():
-            if key.endswith('_perms'):
-                all_perms[key] = value
+        # Statiques: lus sur la declaration et non plus sur le DEFAULT_CFG, d'ou
+        # les droits ont ete retires - la boucle sur DEFAULT_CFG ne rendait donc
+        # plus que les droits dynamiques.
+        all_perms.update(RIGHTS.default_cfg())
 
         # Add dynamically generated permissions
         for right_name, right_id in cls.generated_rights.items():
