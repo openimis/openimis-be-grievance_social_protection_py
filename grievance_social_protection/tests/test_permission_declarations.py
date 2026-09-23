@@ -1,23 +1,23 @@
 """
-Garde-fous sur la declaration des droits de grievance_social_protection.
+Guard rails on grievance_social_protection's rights declaration.
 
-Meme structure que `claim`, `product` et `contribution_plan` : `DJANGO_PERMS` par
-entite puis par action, `_PERM_CFG` qui en derive les cles de config, et un
-`get_rights` sur chaque modele principal qui n'est qu'un point d'acces.
+Same structure as `claim`, `product` and `contribution_plan`: `DJANGO_PERMS` by entity
+then by action, `_PERM_CFG` deriving the config keys from it, and a `get_rights` on
+each main model which is only an access point.
 
-La particularite du module est qu'il a **deux sources de droits** :
+What is particular to this module is that it has **two sources of rights**:
 
-  * les droits STATIQUES, 127000-127006, ecrits dans `DJANGO_PERMS` - c'est ce que
-    ces tests epinglent ;
-  * les droits DYNAMIQUES, 127100-127999, crees a l'execution par
-    `rights.GrievanceRightsManager` a partir de `grievance_types`, poses en attribut
-    `*_category_tickets_perms` / `*_flagged_tickets_perms` sur l'AppConfig et lus par
-    `GrievanceAccessControl`. Ils ne sont volontairement pas declares : leur entier
-    depend de la configuration et de l'ordre des categories.
+  * the STATIC rights, 127000-127006, written in `DJANGO_PERMS` - that is what these
+    tests pin down;
+  * the DYNAMIC rights, 127100-127999, created at runtime by
+    `rights.GrievanceRightsManager` out of `grievance_types`, laid down as
+    `*_category_tickets_perms` / `*_flagged_tickets_perms` attributes on the AppConfig
+    and read by `GrievanceAccessControl`. They are deliberately not declared: their
+    integer depends on the configuration and on the order of the categories.
 
-Les tests ci-dessous verrouillent le couple entite/action du bloc statique et, surtout,
-la **frontiere** entre les deux : aucun identifiant declare ne doit tomber dans la plage
-reservee au generateur.
+The tests below lock down the entity/action pair of the static block and, above all,
+the **boundary** between the two: no declared identifier may fall in the range reserved
+for the generator.
 """
 
 import json
@@ -61,9 +61,9 @@ EXPECTED_MAP_ENTRIES = {
     "grievance_social_protection.resolve_grievance": "127006",
 }
 
-# Les deux droits dynamiques pre-poses en dur sur l'AppConfig, pour la categorie par
-# defaut `uncategorized`. Ils sont hors de `DJANGO_PERMS` a dessein ; epingles ici pour
-# que leur disparition ou leur deplacement soit visible.
+# The two dynamic rights hard-laid on the AppConfig in advance, for the default
+# `uncategorized` category. They are outside `DJANGO_PERMS` by design; pinned here so
+# that their disappearance or their move is visible.
 PRESEEDED_DYNAMIC_RIGHTS = {
     "gql_query_uncategorized_category_tickets_perms": [127100],
     "gql_mutation_update_uncategorized_category_tickets_perms": [127102],
@@ -120,7 +120,7 @@ class GrievancePermissionDeclarationTestCase(TestCase):
                 self.assertEqual(getattr(TicketConfig, key), perms(entity, action))
 
     def test_no_right_id_is_shared(self):
-        """Sept actions, sept identifiants : aucun alias dans ce module."""
+        """Seven actions, seven identifiers: no alias in this module."""
         seen = {}
         for entity, actions in DJANGO_PERMS.items():
             for action, (_, right_id) in actions.items():
@@ -151,12 +151,12 @@ class GrievancePermissionDeclarationTestCase(TestCase):
         actual = {name: mapping.get(name) for name in EXPECTED_MAP_ENTRIES}
         self.assertEqual(actual, EXPECTED_MAP_ENTRIES)
 
-    # --- la frontiere avec les droits generes ------------------------------
+    # --- the boundary with the generated rights ---------------------------
     def test_no_declared_right_falls_in_the_generated_range(self):
         """
-        127100-127999 appartient a `GrievanceRightsManager`. Y declarer un entier fixe
-        le ferait entrer en collision avec une permission allouee a l'execution, et
-        `core/rights_sync.py` ecrirait une correspondance fausse.
+        127100-127999 belongs to `GrievanceRightsManager`. Declaring a fixed integer
+        in it would make that integer collide with a permission allocated at runtime,
+        and `core/rights_sync.py` would write a false mapping.
         """
         intruders = [
             (entity, action, right_id)
@@ -170,13 +170,12 @@ class GrievancePermissionDeclarationTestCase(TestCase):
 
     def test_preseeded_dynamic_rights_stay_out_of_the_declaration(self):
         """
-        127100 / 127102 sont les identifiants qu'obtient la categorie par defaut
-        `uncategorized` **quand elle est la premiere** a demander 'read' et 'update' :
-        `_get_next_available_id` part de 127100 + suffixe et avance de 10 dans l'ordre
-        de parcours de `processed_categories`. Deux deploiements ayant les memes
-        categories dans un ordre different n'attribuent donc pas les memes entiers.
-        Ces deux valeurs restent un pre-amorcage sur l'AppConfig, jamais une
-        declaration.
+        127100 / 127102 are the identifiers the default `uncategorized` category gets
+        **when it is the first** to ask for 'read' and 'update': `_get_next_available_id`
+        starts from 127100 + suffix and advances by 10 in the iteration order of
+        `processed_categories`. Two deployments with the same categories in a different
+        order therefore do not assign the same integers. These two values stay a
+        pre-seeding on the AppConfig, never a declaration.
         """
         for key in PRESEEDED_DYNAMIC_RIGHTS:
             with self.subTest(key=key):
@@ -208,12 +207,12 @@ class GrievancePermissionDeclarationTestCase(TestCase):
         finally:
             TicketConfig.gql_query_tickets_perms = original
 
-    # --- la sous-ressource -------------------------------------------------
+    # --- the sub-resource --------------------------------------------------
     def test_comment_delegates_update_and_delete_to_its_ticket(self):
         """
-        Le commentaire a ses propres droits de lecture et de creation, mais pas de
-        modification : `model_rights` remonte alors au ticket par `scope_parent`.
-        `ticket` est le seul FK proprietaire - `commenter` designe l'auteur.
+        The comment has its own read and create rights, but no modify right:
+        `model_rights` then walks up to the ticket through `scope_parent`. `ticket` is
+        the only owning FK - `commenter` denotes the author.
         """
         from core.rights_scope import model_rights, scope_parent_of
 

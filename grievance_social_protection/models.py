@@ -59,12 +59,12 @@ class Ticket(HistoryBusinessModel):
 
     @classmethod
     def get_rights(cls, action):
-        # Lecture a l'appel, jamais a l'import: les cles `_perms` ne valent leur
-        # valeur qu'apres `ready()`, et un instantane pris a l'import capturerait
-        # une liste vide - que `has_perms` accorde a tout le monde.
-        # Ne couvre que les droits statiques du module; les droits par categorie
-        # (127100-127999) sont controles par `GrievanceAccessControl`, qui les lit
-        # sur `processed_categories`.
+        # Read at call time, never at import: the `_perms` keys only hold their
+        # value after `ready()`, and a snapshot taken at import would capture an
+        # empty list - which `has_perms` grants to everybody.
+        # Covers the module's static rights only; the per-category rights
+        # (127100-127999) are checked by `GrievanceAccessControl`, which reads them
+        # off `processed_categories`.
         from grievance_social_protection.apps import configured_perms
         return configured_perms("ticket", action)
 
@@ -107,11 +107,11 @@ class TicketMutation(core_models.UUIDModel, core_models.ObjectMutation):
 
 class Comment(HistoryModel):
     ticket = models.ForeignKey(Ticket, on_delete=models.DO_NOTHING, null=False, blank=False)
-    # Un commentaire se lit et se cree avec ses propres droits (127004 / 127005),
-    # mais le modifier ou le supprimer, c'est agir sur le fil du grief: pour ces
-    # actions `get_rights` renvoie None et `model_rights` remonte au ticket.
-    # `ticket` est le seul FK proprietaire - `commenter` est une cle generique
-    # vers l'auteur, pas vers l'objet possede.
+    # A comment is read and created with its own rights (127004 / 127005), but
+    # modifying or deleting it means acting on the grievance thread: for those
+    # actions `get_rights` returns None and `model_rights` walks up to the ticket.
+    # `ticket` is the only owning FK - `commenter` is a generic key to the author,
+    # not to the object owned.
     scope_parent = "ticket"
     commenter_type = models.ForeignKey(ContentType, on_delete=models.DO_NOTHING, null=True, blank=True)
     commenter_id = models.CharField(max_length=255, null=True, blank=True)
@@ -135,8 +135,8 @@ class Comment(HistoryModel):
 
     @classmethod
     def get_rights(cls, action):
-        # Voir `Ticket.get_rights`: lecture a l'appel. None pour `update` et
-        # `delete`, que le `scope_parent` fait retomber sur le ticket.
+        # See `Ticket.get_rights`: read at call time. None for `update` and
+        # `delete`, which the `scope_parent` falls back onto the ticket for.
         from grievance_social_protection.apps import configured_perms
         return configured_perms("comment", action)
 

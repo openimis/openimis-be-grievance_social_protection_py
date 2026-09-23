@@ -21,21 +21,21 @@ VALID_PERMISSION_TYPES = frozenset({'restricted_read', 'read', 'create', 'update
 CATEGORY_SEPARATOR = ' > '
 
 # ---------------------------------------------------------------------------
-# Droits STATIQUES du module : 127000-127006.
+# The module's STATIC rights: 127000-127006.
 #
-# Frontiere avec le dynamique, a ne pas franchir : la plage 127100-127999 est
-# reservee a `rights.GrievanceRightsManager`, qui cree une permission django par
-# categorie de grief et par type d'acces (read / restricted_read / create /
-# update / delete) a partir de `grievance_types`, puis pose le resultat en
-# attribut `*_category_tickets_perms` / `*_flagged_tickets_perms` sur cette
-# AppConfig. Ces droits-la ne sont PAS declares ici : leur identifiant est
-# attribue a l'execution, il depend de la configuration du deploiement, et
-# `core/rights_sync.py` connait et respecte ce cas (il lit les permissions
-# generees sous le ContentType de Ticket, sans jamais les ecrire).
-# Ce qui est declare ci-dessous est donc exactement ce qui est fixe dans le code.
+# The boundary with the dynamic ones, not to be crossed: the 127100-127999 range is
+# reserved for `rights.GrievanceRightsManager`, which creates one django
+# permission per grievance category and per access type (read / restricted_read /
+# create / update / delete) out of `grievance_types`, then lays the result down as
+# `*_category_tickets_perms` / `*_flagged_tickets_perms` attributes on this
+# AppConfig. Those rights are NOT declared here: their identifier is assigned at
+# runtime, it depends on the deployment's configuration, and
+# `core/rights_sync.py` knows about and respects that case (it reads the
+# permissions generated under Ticket's ContentType, without ever writing them).
+# What is declared below is therefore exactly what is fixed in the code.
 #
-# `resolve` est une action metier et non un `update` : resoudre un grief par un
-# commentaire ferme le ticket, c'est un pouvoir separe de la modification.
+# `resolve` is a business action and not an `update`: resolving a grievance through
+# a comment closes the ticket, which is a power separate from modifying it.
 DJANGO_PERMS = {
     "ticket": {
         "query": ("grievance_social_protection.view_ticket", 127000),
@@ -44,10 +44,10 @@ DJANGO_PERMS = {
         "delete": ("grievance_social_protection.delete_ticket", 127003),
         "resolve": ("grievance_social_protection.resolve_ticket", 127006),
     },
-    # Le commentaire a ses propres droits de lecture et de creation (127004 /
-    # 127005) : on peut commenter un grief sans pouvoir le modifier. Il n'a en
-    # revanche pas de droit de modification ni de suppression propre - voir le
-    # `scope_parent` declare sur le modele.
+    # The comment has its own read and create rights (127004 / 127005): one may
+    # comment on a grievance without being able to modify it. It has, on the other
+    # hand, no modify nor delete right of its own - see the `scope_parent` declared
+    # on the model.
     "comment": {
         "query": ("grievance_social_protection.view_comment", 127004),
         "create": ("grievance_social_protection.add_comment", 127005),
@@ -105,22 +105,22 @@ class TicketConfig(AppConfig):
     gql_query_comments_perms = RIGHTS.perms("comment", "query")
     gql_mutation_create_comment_perms = RIGHTS.perms("comment", "create")
 
-    # Droits DYNAMIQUES, pre-poses. Ils appartiennent a la plage 127100-127999 de
-    # `GrievanceRightsManager` et non a `DJANGO_PERMS`: ce sont les deux droits
-    # ('read' et 'update') de la categorie par defaut `uncategorized`, que
-    # `__process_unified_categories` insere en tete de `grievance_types` quand le
-    # deploiement ne la nomme pas. Ils sont ecrits ici pour que l'ecran de
-    # configuration des roles et `permissions_map.json` les connaissent avant le
-    # premier `ready()`; celui-ci les remplace par `setattr` avec les
-    # identifiants reellement alloues en base.
+    # DYNAMIC rights, laid down in advance. They belong to
+    # `GrievanceRightsManager`'s 127100-127999 range and not to `DJANGO_PERMS`:
+    # they are the two rights ('read' and 'update') of the default `uncategorized`
+    # category, which `__process_unified_categories` inserts at the head of
+    # `grievance_types` when the deployment does not name it. They are written here
+    # so that the role configuration screen and `permissions_map.json` know about
+    # them before the first `ready()`; that `ready()` replaces them by `setattr`
+    # with the identifiers actually allocated in the database.
     #
-    # Ils ne peuvent PAS entrer dans `DJANGO_PERMS`: 127100 et 127102 ne sont
-    # exacts que si `uncategorized` est la premiere categorie a demander 'read'
-    # et 'update'. L'allocation (`_get_next_available_id`) part de 127100+suffixe
-    # et avance de 10 dans l'ordre de parcours de `processed_categories`: deux
-    # deploiements ayant les memes categories dans un ordre different
-    # n'attribuent pas les memes identifiants. Declarer ces entiers comme fixes
-    # ferait ecrire a `core/rights_sync.py` une correspondance fausse.
+    # They can NOT go into `DJANGO_PERMS`: 127100 and 127102 are only correct if
+    # `uncategorized` is the first category to ask for 'read' and 'update'. The
+    # allocation (`_get_next_available_id`) starts from 127100+suffix and advances
+    # by 10 in the iteration order of `processed_categories`: two deployments with
+    # the same categories in a different order do not assign the same identifiers.
+    # Declaring these integers as fixed would make `core/rights_sync.py` write a
+    # false mapping.
     gql_query_uncategorized_category_tickets_perms = [127100]
     gql_mutation_update_uncategorized_category_tickets_perms = [127102]
 
@@ -151,9 +151,9 @@ class TicketConfig(AppConfig):
         """
         all_perms = {}
 
-        # Statiques: lus sur la declaration et non plus sur le DEFAULT_CFG, d'ou
-        # les droits ont ete retires - la boucle sur DEFAULT_CFG ne rendait donc
-        # plus que les droits dynamiques.
+        # Static ones: read off the declaration and no longer off the DEFAULT_CFG,
+        # from which the rights have been removed - so the loop over DEFAULT_CFG
+        # was only returning the dynamic rights any more.
         all_perms.update(RIGHTS.default_cfg())
 
         # Add dynamically generated permissions
