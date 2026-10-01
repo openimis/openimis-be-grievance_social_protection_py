@@ -2,7 +2,6 @@
 Test restricted view functionality for grievance tickets based on user access levels.
 """
 from django.test import TestCase
-from core.test_helpers import create_test_interactive_user
 from core.models.openimis_graphql_test_case import openIMISGraphQLTestCase, BaseTestContext
 from graphene import Schema
 from graphene.test import Client
@@ -12,7 +11,7 @@ from grievance_social_protection.schema import Query
 from grievance_social_protection.access_control import GrievanceAccessControl
 from grievance_social_protection.tests.test_helpers import (
     setup_grievance_config, restore_grievance_config,
-    assign_rights_to_user, get_rights,
+    assign_rights_to_user, create_user_with_rights, get_rights,
 )
 
 
@@ -24,10 +23,10 @@ class RestrictedViewTest(openIMISGraphQLTestCase):
         super().setUpClass()
 
         # Create test users with different access levels
-        cls.user_restricted = create_test_interactive_user(username='restricted_viewer', roles=[1])
-        cls.user_full_viewer = create_test_interactive_user(username='full_viewer', roles=[1])
-        cls.user_manager = create_test_interactive_user(username='manager', roles=[1])
-        cls.user_no_access = create_test_interactive_user(username='no_access', roles=[1])
+        cls.user_restricted = create_user_with_rights('restricted_viewer', [], 'TestRestrictedRole')
+        cls.user_full_viewer = create_user_with_rights('full_viewer', [], 'TestViewerRole')
+        cls.user_manager = create_user_with_rights('manager', [], 'TestManagerRole')
+        cls.user_no_access = create_user_with_rights('no_access', [], 'TestNoAccessRole')
 
         # Create GraphQL schema
         cls.schema = Schema(query=Query)
@@ -283,7 +282,7 @@ class RestrictedViewIntegrationTest(TestCase):
 
     def setUp(self):
         """Set up test environment"""
-        self.user = create_test_interactive_user(username='test_rights_user', roles=[1])
+        self.user = create_user_with_rights('test_rights_user', [], 'TestRestrictedOnly')
         self._snapshot = self._setup_config_and_rights()
 
     def _setup_config_and_rights(self):

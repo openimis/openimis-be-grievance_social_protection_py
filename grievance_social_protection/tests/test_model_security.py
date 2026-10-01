@@ -8,11 +8,10 @@ from django.test import TestCase
 from django.conf import settings
 from graphql import ResolveInfo
 
-from core.test_helpers import create_test_interactive_user
 from grievance_social_protection.models import Ticket, Comment
 from grievance_social_protection.tests.test_helpers import (
     setup_grievance_config, restore_grievance_config,
-    assign_rights_to_user, collect_all_rights,
+    create_user_with_rights, collect_all_rights,
 )
 
 
@@ -59,14 +58,14 @@ class ModelSecurityTest(TestCase):
     def _create_test_users(cls):
         """Create test users with different permission levels"""
         # Admin with all permissions
-        cls.admin_user = create_test_interactive_user(username='test_admin', roles=[7])
         base_perms = [127000, 127001, 127002, 127003, 127004, 127005, 127006]
         all_right_ids = base_perms + list(collect_all_rights())
-        assign_rights_to_user(cls.admin_user, all_right_ids, 'MSAdminRole')
+        cls.admin_user = create_user_with_rights(
+            'test_admin', all_right_ids, 'MSAdminRole')
 
         # Limited user with only base query permission
-        cls.limited_user = create_test_interactive_user(username='test_limited', roles=[1])
-        assign_rights_to_user(cls.limited_user, [127000], 'MSLimitedRole')
+        cls.limited_user = create_user_with_rights(
+            'test_limited', [127000], 'MSLimitedRole')
 
     @classmethod
     def _create_test_tickets(cls):

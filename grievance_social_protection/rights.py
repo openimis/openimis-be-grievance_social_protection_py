@@ -168,12 +168,14 @@ class GrievanceRightsManager:
                     grouped_rights[right_name] = []
                 grouped_rights[right_name].append(right_id)
 
-            # Set as class attribute AND inject into DEFAULT_CFG so that
-            # core.utils.collect_all_gql_permissions() discovers them for
-            # the role configuration rights dropdown.
+            # Laid down as AppConfig attributes, which is now enough:
+            # `core.utils.collect_all_gql_permissions()` reads the attributes and no
+            # longer the DEFAULT_CFGs, so these generated rights show up in the role
+            # configuration screen without having to be injected back into the config
+            # - where they would look like a setting, whereas rights are no longer
+            # configurable.
             for right_name, right_ids in grouped_rights.items():
-                setattr(app_config, right_name, right_ids)
-                DEFAULT_CFG[right_name] = [str(rid) for rid in right_ids]
+                setattr(app_config, right_name, [str(rid) for rid in right_ids])
 
     @classmethod
     def _get_next_available_id(cls, perm_type, used_ids):

@@ -57,6 +57,17 @@ class Ticket(HistoryBusinessModel):
     def __str__(self):
         return f"{self.title}"
 
+    @classmethod
+    def get_rights(cls, action):
+        # Read at call time, never at import: the `_perms` keys only hold their
+        # value after `ready()`, and a snapshot taken at import would capture an
+        # empty list - which `has_perms` grants to everybody.
+        # Covers the module's static rights only; the per-category rights
+        # (127100-127999) are checked by `GrievanceAccessControl`, which reads them
+        # off `processed_categories`.
+        from grievance_social_protection.apps import configured_perms
+        return configured_perms("ticket", action)
+
     def save(self, *args, **kwargs):
         # Set default category if empty
         if not self.category:
@@ -96,6 +107,12 @@ class TicketMutation(core_models.UUIDModel, core_models.ObjectMutation):
 
 class Comment(HistoryModel):
     ticket = models.ForeignKey(Ticket, on_delete=models.DO_NOTHING, null=False, blank=False)
+    # A comment is read and created with its own rights (127004 / 127005), but
+    # modifying or deleting it means acting on the grievance thread: for those
+    # actions `get_rights` returns None and `model_rights` walks up to the ticket.
+    # `ticket` is the only owning FK - `commenter` is a generic key to the author,
+    # not to the object owned.
+    scope_parent = "ticket"
     commenter_type = models.ForeignKey(ContentType, on_delete=models.DO_NOTHING, null=True, blank=True)
     commenter_id = models.CharField(max_length=255, null=True, blank=True)
     commenter = GenericForeignKey('commenter_type', 'commenter_id')
@@ -115,6 +132,13 @@ class Comment(HistoryModel):
 
             if existing_resolved_comments.exists():
                 raise ValueError("Another comment for this ticket is already marked as resolved.")
+
+    @classmethod
+    def get_rights(cls, action):
+        # See `Ticket.get_rights`: read at call time. None for `update` and
+        # `delete`, which the `scope_parent` falls back onto the ticket for.
+        from grievance_social_protection.apps import configured_perms
+        return configured_perms("comment", action)
 
     @classmethod
     def filter_queryset(cls, queryset=None):

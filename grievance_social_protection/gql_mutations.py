@@ -139,7 +139,11 @@ class CreateCommentMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
     @classmethod
     def _validate_mutation(cls, user, **data):
         super()._validate_mutation(user, **data)
-        if user.has_perms(TicketConfig.gql_mutation_delete_tickets_perms):
+        # The purpose built "create comment" right (127005), not "delete tickets"
+        # (127003): commenting on a grievance is not deleting one. The dedicated right
+        # was declared from the start and granted to imis_admin, but never checked -
+        # so the only way to earn commenting was to hold the ticket delete right.
+        if user.has_perms(TicketConfig.gql_mutation_create_comment_perms):
             return
         if user_associated_with_ticket(user):
             return
