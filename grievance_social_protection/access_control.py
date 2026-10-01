@@ -1,5 +1,8 @@
+import json
 import logging
+import operator
 import re
+from functools import reduce
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 
@@ -19,6 +22,11 @@ class GrievanceAccessControl:
     4. Unconfigured standard permission types fall back to the module's existing role-based permissions
     """
 
+    # Functions (queryset, user) -> queryset that filter_ticket_queryset applies
+    # after the category and flag rules, registered by other modules with
+    # register_ticket_queryset_filter (a module's own row scope, for instance).
+    ticket_queryset_filters = []
+
     # Access level constants
     ACCESS_NONE = 'none'
     ACCESS_RESTRICTED = 'restricted'
@@ -32,6 +40,9 @@ class GrievanceAccessControl:
     PERM_UPDATE = 'update'
     PERM_DELETE = 'delete'
 
+    # Fields visible at the 'restricted' level when the category sets no visible_fields
+    BASIC_VISIBLE_FIELDS = ('id', 'status', 'category', 'priority', 'date_created')
+
     # Fallback to the module's standard ticket permissions when a category/flag
     # has generated_rights but the specific permission type is not among them.
     # Unconfigured standard types defer to the existing role-based permissions.
@@ -44,12 +55,40 @@ class GrievanceAccessControl:
 
     @staticmethod
     def parse_flags(flags):
-        """Parse flags from string or list format to list."""
+        """
+        Parse flags to a list of flag names.
+
+        Accepts a list, a space-separated string ('A B') or a JSON array
+        string ('["A", "B"]'). A string that starts with '[' but is not a
+        JSON array is split on whitespace.
+        """
         if not flags:
             return []
         if isinstance(flags, str):
+            stripped = flags.strip()
+            if stripped.startswith('['):
+                try:
+                    parsed = json.loads(stripped)
+                except ValueError:
+                    parsed = None
+                if isinstance(parsed, list):
+                    return [str(flag).strip() for flag in parsed if str(flag).strip()]
             return flags.split()
         return list(flags)
+
+    @staticmethod
+    def _flag_stored_q(flag):
+        """
+        Q matching tickets whose stored flags contain the given flag, in
+        either encoding accepted by parse_flags.
+        """
+        space_separated = Q(flags__regex=r'(^| )' + re.escape(flag) + r'( |$)')
+        # A JSON array element is a quoted string; its body may be stored with
+        # or without \u escapes, and parse_flags strips surrounding blanks.
+        bodies = {json.dumps(flag)[1:-1], json.dumps(flag, ensure_ascii=False)[1:-1]}
+        alternatives = '|'.join(re.escape(body) for body in sorted(bodies))
+        json_array = Q(flags__regex=r'^\s*\[.*"\s*(' + alternatives + r')\s*"')
+        return space_separated | json_array
 
     @classmethod
     def _check_access(cls, user, name, access_type, config_attr):
@@ -110,6 +149,16 @@ class GrievanceAccessControl:
         return user.has_perm(str(required_right))
 
     @classmethod
+    def _holds_generated_right(cls, user, name, access_type, config_attr):
+        """True when the category/flag has a right generated for `access_type`
+        and the user holds it. No fallback to the module's base rights."""
+        if not user or user.is_anonymous:
+            return False
+        processed = getattr(TicketConfig, config_attr, {}) or {}
+        right = processed.get(name, {}).get('generated_rights', {}).get(access_type)
+        return bool(right) and user.has_perm(str(right))
+
+    @classmethod
     def check_category_access(cls, user, category_name, access_type=PERM_READ):
         return cls._check_access(user, category_name, access_type, 'processed_categories')
 
@@ -156,9 +205,13 @@ class GrievanceAccessControl:
             str: 'full', 'read', 'restricted', or 'none'
         """
 
-        def evaluate_access(check_func, name, has_restrictions_func):
+        def evaluate_access(check_func, name, has_restrictions_func, config_attr):
             """
             Evaluate access level for a single category or flag.
+
+            'full' requires a create, update or delete right generated for the
+            item itself; the module's base ticket rights do not raise a user
+            above 'read'.
 
             Returns:
                 str: 'full', 'read', 'restricted', 'none', or None (no restrictions)
@@ -166,7 +219,8 @@ class GrievanceAccessControl:
             if not has_restrictions_func(name):
                 return None  # No restrictions
 
-            if any(check_func(user, name, t) for t in (cls.PERM_CREATE, cls.PERM_UPDATE, cls.PERM_DELETE)):
+            if any(cls._holds_generated_right(user, name, t, config_attr)
+                   for t in (cls.PERM_CREATE, cls.PERM_UPDATE, cls.PERM_DELETE)):
                 return cls.ACCESS_FULL
             if check_func(user, name, cls.PERM_READ):
                 return cls.ACCESS_READ
@@ -189,7 +243,8 @@ class GrievanceAccessControl:
         category_access = evaluate_access(
             cls.check_category_access,
             category_name,
-            cls.has_category_restrictions
+            cls.has_category_restrictions,
+            'processed_categories',
         ) if category_name else None
 
         # Evaluate flag access (most restrictive across all flags)
@@ -200,7 +255,8 @@ class GrievanceAccessControl:
                 level = evaluate_access(
                     cls.check_flag_access,
                     flag,
-                    cls.has_flag_restrictions
+                    cls.has_flag_restrictions,
+                    'processed_flags',
                 )
                 if level is not None:
                     flag_accesses.append(level)
@@ -290,14 +346,24 @@ class GrievanceAccessControl:
                 if flag_info.get('generated_rights') and not cls.can_view_flag(user, flag_name)
             ]
 
-            # Exclude tickets with completely restricted flags using whole-word matching.
+            # Exclude tickets carrying a completely restricted flag, whole-token match.
             # Uses POSIX-compatible patterns (no lookbehind) for PostgreSQL compatibility.
             for flag in restricted_flags:
-                queryset = queryset.exclude(
-                    flags__regex=r'(^| )' + re.escape(flag) + r'( |$)'
-                )
+                queryset = queryset.exclude(cls._flag_stored_q(flag))
+
+        for ticket_filter in cls.ticket_queryset_filters:
+            queryset = ticket_filter(queryset, user)
 
         return queryset
+
+    @classmethod
+    def register_ticket_queryset_filter(cls, ticket_filter):
+        """Add ticket_filter(queryset, user) -> queryset to the filters of
+        filter_ticket_queryset, which every ticket list, comment list and
+        dashboard of the module reads. Registering the same function twice
+        keeps one."""
+        if ticket_filter not in cls.ticket_queryset_filters:
+            cls.ticket_queryset_filters.append(ticket_filter)
 
     @classmethod
     def get_category_defaults(cls, category_name):
@@ -334,18 +400,15 @@ class GrievanceAccessControl:
     def get_effective_priority(cls, category_name, flag_names=None):
         """
         Get the effective priority for a ticket based on category and flags.
-        Higher priority wins (Critical > High > Medium > Low).
+
+        Starts from the category's priority ('Medium' when the category is not
+        configured) and takes any flag priority that is higher
+        (Critical > High > Medium > Low).
         """
 
         priorities = ['Low', 'Medium', 'High', 'Critical']
-        max_idx = priorities.index('Medium')
-
-        # Check category priority
-        if TicketConfig.processed_categories and category_name in TicketConfig.processed_categories:
-            cat_priority = TicketConfig.processed_categories[category_name].get('priority', 'Medium')
-            cat_idx = cls._get_priority_index(cat_priority, priorities)
-            if cat_idx > max_idx:
-                max_idx = cat_idx
+        category_priority = cls.get_category_defaults(category_name)['priority']
+        max_idx = cls._get_priority_index(category_priority, priorities)
 
         # Check flag priorities
         if flag_names:
@@ -361,20 +424,26 @@ class GrievanceAccessControl:
         return priorities[max_idx]
 
     @classmethod
-    def get_visible_fields(cls, user, category_name):
+    def get_visible_fields(cls, user, category_name, flag_names=None):
         """
-        Get the list of fields visible to the user for a specific category.
+        Get the list of fields visible to the user for a category and, when
+        given, the ticket's flags.
+
+        The access level combines the category and the flags (most restrictive
+        wins); the field list for 'restricted' comes from the category's
+        visible_fields, or the basic fields when the category has none.
 
         Args:
             user: Django user object
             category_name: Full category name
+            flag_names: Ticket flags in any encoding accepted by parse_flags
 
         Returns:
             list: List of field names the user can see, or None if all fields are visible
         """
 
         # Check user's access level
-        access_level = cls.get_user_access_level(user, category_name)
+        access_level = cls.get_user_access_level(user, category_name, flag_names)
 
         # Full access or no restrictions - all fields visible
         if access_level in (cls.ACCESS_FULL, cls.ACCESS_READ):
@@ -384,17 +453,59 @@ class GrievanceAccessControl:
         if access_level == cls.ACCESS_NONE:
             return []
 
-        # Restricted access - check visible_fields configuration
-        if TicketConfig.processed_categories and category_name in TicketConfig.processed_categories:
-            category_info = TicketConfig.processed_categories[category_name]
-            visible_fields = category_info.get('visible_fields', [])
+        return cls.restricted_visible_fields(category_name)
 
-            # If visible_fields is defined, return it
-            if visible_fields:
-                return visible_fields.copy()
+    @classmethod
+    def restricted_visible_fields(cls, category_name):
+        """
+        Fields visible at the 'restricted' level on a ticket of the category:
+        the category's visible_fields, or the basic fields when it has none.
+        """
+        processed = TicketConfig.processed_categories or {}
+        visible_fields = processed.get(category_name, {}).get('visible_fields') if category_name else None
+        if visible_fields:
+            return list(visible_fields)
+        return list(cls.BASIC_VISIBLE_FIELDS)
 
-        # If no visible_fields configured, restricted users see basic fields only
-        return ['id', 'status', 'category', 'priority', 'date_created']
+    @classmethod
+    def hidden_field_q(cls, user, field_name):
+        """
+        Q matching the tickets on which the field is hidden to the user, as
+        get_visible_fields decides it from each ticket's category and flags;
+        None when the field is visible on every ticket.
+        """
+        if not user or user.is_anonymous:
+            return Q(pk__isnull=False)
+
+        categories = TicketConfig.processed_categories or {}
+        flags = TicketConfig.processed_flags or {}
+        by_level = {cls.ACCESS_NONE: [], cls.ACCESS_RESTRICTED: []}
+        for name in categories:
+            level = cls.get_user_access_level(user, name)
+            if level in by_level:
+                by_level[level].append(Q(category=name))
+        for name in flags:
+            level = cls.get_user_access_level(user, None, [name])
+            if level in by_level:
+                by_level[level].append(cls._flag_stored_q(name))
+
+        hidden = []
+        if by_level[cls.ACCESS_NONE]:
+            hidden.append(reduce(operator.or_, by_level[cls.ACCESS_NONE]))
+        if by_level[cls.ACCESS_RESTRICTED]:
+            # At the 'restricted' level the category decides which fields show;
+            # a ticket of an unconfigured or blank category shows the basic fields.
+            hides_field = []
+            hiding_categories = [
+                name for name in categories if field_name not in cls.restricted_visible_fields(name)]
+            if hiding_categories:
+                hides_field.append(Q(category__in=hiding_categories))
+            if field_name not in cls.BASIC_VISIBLE_FIELDS:
+                hides_field.append(~Q(category__in=list(categories)))
+            if hides_field:
+                hidden.append(reduce(operator.or_, by_level[cls.ACCESS_RESTRICTED])
+                              & reduce(operator.or_, hides_field))
+        return reduce(operator.or_, hidden) if hidden else None
 
     @classmethod
     def filter_fields_for_user(cls, user, category_name, available_fields):
