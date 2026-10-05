@@ -262,6 +262,24 @@ class ConfigProcessingTest(TestCase):
         self.assertIsNotNone(mc.pk)
         mc.delete()
 
+    def test_flag_name_with_whitespace_is_refused(self):
+        """A ticket stores its flags space-separated: "Flag A" would read back as "Flag" and "A"."""
+        mc = ModuleConfiguration(
+            module="grievance_social_protection",
+            layer="be",
+            version="1.0.0",
+            config=json.dumps({"grievance_flags": ["urgent", "Flag A"]}),
+        )
+
+        with self.assertRaises(ValidationError) as ctx:
+            mc.save()
+
+        self.assertIn('Flag A', str(ctx.exception))
+
+    def test_default_flags_contain_no_whitespace(self):
+        from grievance_social_protection.apps import DEFAULT_CFG
+        self.assertEqual(TicketConfig._flags_with_whitespace(DEFAULT_CFG), [])
+
     def test_nested_category_inherited_default_flags_must_exist(self):
         """Inherited default_flags from parent categories must also be validated on save"""
         invalid_config = {

@@ -77,7 +77,9 @@ DEFAULT_CFG = {
     "tickets_attachments_root_path": None,
 
     "grievance_types": [DEFAULT_STRING, 'Category A', 'Category B'],
-    "grievance_flags": [DEFAULT_STRING, 'Flag A', 'Flag B'],
+    # No whitespace in a flag name: a ticket stores its flags as one
+    # space-separated string, so "Flag A" would be read back as "Flag" and "A".
+    "grievance_flags": [DEFAULT_STRING, 'FlagA', 'FlagB'],
     "grievance_channels": [DEFAULT_STRING, 'Channel A', 'Channel B'],
     "default_responses": {DEFAULT_STRING: DEFAULT_STRING},
     "grievance_anonymized_fields": {DEFAULT_STRING: []},
@@ -172,6 +174,14 @@ class TicketConfig(AppConfig):
         cfg = ModuleConfiguration.get_or_default(MODULE_NAME, DEFAULT_CFG)
         self.__process_config(cfg)
         self.__validate_config(cfg)
+        # Logged, not raised: a stored configuration predating this check must not
+        # stop the server from starting. Saving such a configuration is refused.
+        invalid_flags = self._flags_with_whitespace(cfg)
+        if invalid_flags:
+            logger.error(
+                "grievance_flags contains names with whitespace, which tickets cannot "
+                "store (flags are space-separated): %s. Rename them.", invalid_flags
+            )
         self.__load_config(cfg)
 
         # Generate rights only when the database is available and ready.
@@ -205,6 +215,17 @@ class TicketConfig(AppConfig):
         cfg = self._merge_with_defaults(instance)
         self.__process_config(cfg)
         self.__validate_config(cfg)
+        invalid_flags = self._flags_with_whitespace(cfg)
+        if invalid_flags:
+            raise ValidationError(
+                f"Flag names cannot contain whitespace, because a ticket stores its "
+                f"flags as one space-separated string: {invalid_flags}"
+            )
+
+    @staticmethod
+    def _flags_with_whitespace(cfg):
+        """The configured flag names a ticket could not store."""
+        return [flag for flag in cfg.get('grievance_flags', []) if not flag or any(c.isspace() for c in flag)]
 
     def _reload_module_config(self, instance):
         cfg = self._merge_with_defaults(instance)

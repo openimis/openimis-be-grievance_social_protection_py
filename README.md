@@ -49,6 +49,8 @@ The module supports both simple and enhanced category configurations:
 }
 ```
 
+> **Flag names cannot contain whitespace.** A ticket stores its flags as one space-separated string, so a flag named `Flag A` would be read back as `Flag` and `A`. Saving such a configuration is refused, and a stored one is reported as an error at startup.
+
 #### Enhanced Format with Auto-Generated Permission IDs
 
 > **Note:** `permissions` values are permission-type strings (`restricted_read`, `read`, `create`, `update`, `delete`), not numeric right IDs. The system generates numeric IDs automatically.
