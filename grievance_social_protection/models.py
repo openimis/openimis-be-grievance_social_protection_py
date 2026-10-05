@@ -162,8 +162,11 @@ class Comment(HistoryModel):
             allowed_tickets = GrievanceAccessControl.filter_ticket_queryset(allowed_tickets, user)
             allowed_ticket_ids = allowed_tickets.values_list('id', flat=True)
 
-            # Only show comments for tickets the user can access
-            queryset = queryset.filter(ticket_id__in=allowed_ticket_ids)
+            # Only show comments for tickets the user can access, or attends
+            queryset = queryset.filter(
+                models.Q(ticket_id__in=allowed_ticket_ids)
+                | models.Q(ticket__attending_staff=user)
+            )
         return queryset
 
 
