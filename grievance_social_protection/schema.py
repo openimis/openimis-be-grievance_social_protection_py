@@ -35,7 +35,6 @@ class Query(graphene.ObjectType):
 
     ticketsStr = OrderedDjangoFilterConnectionField(
         TicketGQLType,
-        str=graphene.String(),
     )
     # ticket_attachments = DjangoFilterConnectionField(TicketAttachmentGQLType)
 
@@ -58,7 +57,8 @@ class Query(graphene.ObjectType):
         if not (user_associated_with_ticket(user) or user.has_perms(TicketConfig.gql_query_comments_perms)):
             raise PermissionDenied(_("Unauthorized"))
 
-        return gql_optimizer.query(Comment.objects.all(), info)
+        query = GrievanceAccessControl.filter_comment_queryset(Comment.objects.all(), user)
+        return gql_optimizer.query(query, info)
 
     def resolve_ticket_details(self, info, **kwargs):
         if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
@@ -117,10 +117,6 @@ class Query(graphene.ObjectType):
         client_mutation_id = kwargs.get("client_mutation_id", None)
         if client_mutation_id:
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
-
-        # str = kwargs.get('str')
-        # if str is not None:
-        #     filters += [Q(code__icontains=str) | Q(name__icontains=str)]
 
         query = Ticket.objects.filter(*filters).all()
 
