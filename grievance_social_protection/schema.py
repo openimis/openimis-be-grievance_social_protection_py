@@ -12,6 +12,7 @@ from .access_control import GrievanceAccessControl
 
 from .gql_queries import (
     TicketGQLType, CommentGQLType, GrievanceTypeConfigurationGQLType,
+    COMMENT_TICKET_PREFIX, order_without_hidden_fields,
 )
 from .gql_mutations import (
     CreateTicketMutation, UpdateTicketMutation, DeleteTicketMutation,
@@ -24,8 +25,29 @@ from django.core.exceptions import PermissionDenied
 from django.utils.translation import gettext_lazy as _
 
 
+class TicketConnectionField(OrderedDjangoFilterConnectionField):
+    """OrderedDjangoFilterConnectionField whose ordering on a ticket field
+    leaves the tickets hiding that field from the user unordered by its value
+    (order_without_hidden_fields), whether the ordering comes from orderBy or
+    from the resolver."""
+
+    ticket_prefix = ''
+
+    @classmethod
+    def resolve_queryset(cls, connection, iterable, info, args, filtering_args, filterset_class):
+        queryset = super().resolve_queryset(connection, iterable, info, args, filtering_args, filterset_class)
+        return order_without_hidden_fields(queryset, info.context.user, cls.ticket_prefix)
+
+
+class CommentConnectionField(TicketConnectionField):
+    """TicketConnectionField of comments: an ordering on a field of the
+    comment's ticket follows the visibility of that field on the ticket."""
+
+    ticket_prefix = COMMENT_TICKET_PREFIX
+
+
 class Query(graphene.ObjectType):
-    tickets = OrderedDjangoFilterConnectionField(
+    tickets = TicketConnectionField(
         TicketGQLType,
         orderBy=graphene.List(of_type=graphene.String),
         show_history=graphene.Boolean(),
@@ -33,13 +55,12 @@ class Query(graphene.ObjectType):
         ticket_version=graphene.Int(),
     )
 
-    ticketsStr = OrderedDjangoFilterConnectionField(
+    ticketsStr = TicketConnectionField(
         TicketGQLType,
-        str=graphene.String(),
     )
     # ticket_attachments = DjangoFilterConnectionField(TicketAttachmentGQLType)
 
-    ticket_details = OrderedDjangoFilterConnectionField(
+    ticket_details = TicketConnectionField(
         TicketGQLType,
         # showHistory=graphene.Boolean(),
         orderBy=graphene.List(of_type=graphene.String),
@@ -47,7 +68,7 @@ class Query(graphene.ObjectType):
 
     grievance_config = graphene.Field(GrievanceTypeConfigurationGQLType)
 
-    comments = OrderedDjangoFilterConnectionField(
+    comments = CommentConnectionField(
         CommentGQLType,
         orderBy=graphene.List(of_type=graphene.String),
     )
@@ -58,7 +79,8 @@ class Query(graphene.ObjectType):
         if not (user_associated_with_ticket(user) or user.has_perms(TicketConfig.gql_query_comments_perms)):
             raise PermissionDenied(_("Unauthorized"))
 
-        return gql_optimizer.query(Comment.objects.all(), info)
+        query = GrievanceAccessControl.filter_comment_queryset(Comment.objects.all(), user)
+        return gql_optimizer.query(query, info)
 
     def resolve_ticket_details(self, info, **kwargs):
         if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
@@ -117,10 +139,6 @@ class Query(graphene.ObjectType):
         client_mutation_id = kwargs.get("client_mutation_id", None)
         if client_mutation_id:
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
-
-        # str = kwargs.get('str')
-        # if str is not None:
-        #     filters += [Q(code__icontains=str) | Q(name__icontains=str)]
 
         query = Ticket.objects.filter(*filters).all()
 

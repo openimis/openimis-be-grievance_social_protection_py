@@ -1,5 +1,5 @@
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import ValidationError, PermissionDenied
+from django.core.exceptions import FieldDoesNotExist, ValidationError, PermissionDenied
 from django.db.models import Max
 from django.db import transaction
 
@@ -43,7 +43,9 @@ class TicketService(BaseService):
     @register_service_signal('ticket_service.update')
     def update(self, obj_data):
         self._get_content_type(obj_data)
-        self._validate_existing_ticket_access(obj_data, access_type=GrievanceAccessControl.PERM_UPDATE)
+        ticket = self._validate_existing_ticket_access(obj_data, access_type=GrievanceAccessControl.PERM_UPDATE)
+        if ticket is not None:
+            self._drop_anonymized_fields(obj_data, ticket)
         self._validate_access_control(obj_data, access_type=GrievanceAccessControl.PERM_UPDATE)
         self._apply_category_defaults(obj_data)
         # Re-validate after defaults may have added restricted flags
@@ -68,11 +70,12 @@ class TicketService(BaseService):
             raise ValidationError(str(e))
 
     def _validate_existing_ticket_access(self, obj_data, access_type):
-        """Validate user has permission for the existing ticket's category and flags"""
+        """Validate user has permission for the existing ticket's category and
+        flags; returns the ticket, or None when obj_data names no ticket."""
         ticket_uuid = obj_data.get('uuid')
         ticket_id = obj_data.get('id')
         if not ticket_uuid and not ticket_id:
-            return
+            return None
 
         ticket = None
         base_qs = Ticket.filter_queryset()
@@ -87,6 +90,32 @@ class TicketService(BaseService):
             raise ValidationError("Ticket does not exist.")
 
         self._check_access_or_raise(ticket.category, ticket.flags, access_type)
+        return ticket
+
+    def _drop_anonymized_fields(self, obj_data, ticket):
+        """Leave out of obj_data the fields grievance_anonymized_fields hides
+        from the user on the stored ticket, and give the json_ext keys it hides
+        their stored values. The ticket query returns them masked or without
+        those keys, so a form that sends them back would store the mask or
+        drop the keys."""
+        hidden = GrievanceAccessControl.anonymized_fields(self.user, ticket.category)
+        if not hidden:
+            return
+        hidden_keys = GrievanceAccessControl.anonymized_json_ext_keys(self.user, ticket.category)
+        if hidden_keys and isinstance(obj_data.get('json_ext'), dict):
+            stored = ticket.json_ext if isinstance(ticket.json_ext, dict) else {}
+            json_ext = {key: value for key, value in obj_data['json_ext'].items() if key not in hidden_keys}
+            json_ext.update({key: stored[key] for key in hidden_keys if key in stored})
+            obj_data['json_ext'] = json_ext
+        for key in list(obj_data):
+            if key in ('id', 'uuid'):
+                continue
+            try:
+                name = Ticket._meta.get_field(key).name
+            except FieldDoesNotExist:
+                name = key
+            if name in hidden:
+                del obj_data[key]
 
     @register_service_signal('ticket_service.reopen_ticket')
     @check_authentication
@@ -94,6 +123,7 @@ class TicketService(BaseService):
         try:
             with transaction.atomic():
                 self.validation_class.validate_update(self.user, **obj_data)
+                self._validate_existing_ticket_access(obj_data, access_type=GrievanceAccessControl.PERM_UPDATE)
                 ticket_id = obj_data.get('id')
                 ticket = Ticket.objects.filter(id=ticket_id).first()
                 ticket.status = Ticket.TicketStatus.OPEN
@@ -226,6 +256,7 @@ class CommentService:
                 self.validation_class.validate_resolve_grievance_by_comment(self.user, **obj_data)
                 comment = Comment.objects.filter(id=obj_data.get('id')).first()
                 ticket = comment.ticket
+                self._validate_ticket_update_access(ticket)
                 ticket.status = Ticket.TicketStatus.CLOSED
                 comment.is_resolution = True
                 ticket.save(user=self.user)
@@ -241,6 +272,15 @@ class CommentService:
                 method="resolve_grievance_by_comment",
                 exception=exc
             )
+
+    def _validate_ticket_update_access(self, ticket):
+        """Validate the user may update a ticket of this category and these flags."""
+        try:
+            GrievanceAccessControl.validate_ticket_access(
+                self.user, ticket.category, ticket.flags, GrievanceAccessControl.PERM_UPDATE
+            )
+        except PermissionDenied as e:
+            raise ValidationError(str(e))
 
     def save_instance(self, obj_):
         obj_.save(user=self.user)
