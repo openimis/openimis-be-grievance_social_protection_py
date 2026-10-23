@@ -16,8 +16,8 @@ from .models import Ticket, Comment
 from .access_control import GrievanceAccessControl
 
 from core import prefix_filterset, ExtendedConnection
+from core.gql import ScopedQuerysetMixin
 from .util import model_obj_to_json
-from .validations import user_associated_with_ticket
 
 logger = logging.getLogger(__name__)
 
@@ -127,8 +127,8 @@ def check_ticket_perms(info):
 
 
 def check_comment_perms(info):
-    user = info.context.user
-    if not (user_associated_with_ticket(user) or user.has_perms(TicketConfig.gql_query_comments_perms)):
+    # Attending a ticket grants nothing by itself: the comment right is required.
+    if not info.context.user.has_perms(TicketConfig.gql_query_comments_perms):
         raise PermissionDenied(_("Unauthorized"))
 
 
@@ -341,7 +341,7 @@ class TicketGQLType(DjangoObjectType):
         return ticket_mutation.mutation.client_mutation_id if ticket_mutation else None
 
 
-class CommentGQLType(DjangoObjectType):
+class CommentGQLType(ScopedQuerysetMixin, DjangoObjectType):
     commenter = graphene.JSONString()
     commenter_type = graphene.Int()
     commenter_type_name = graphene.String()
