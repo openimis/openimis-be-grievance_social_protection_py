@@ -6,14 +6,12 @@ from unittest.mock import MagicMock
 
 from django.test import TestCase
 
-from core.test_helpers import create_test_interactive_user
-
 from grievance_social_protection.apps import TicketConfig
 from grievance_social_protection.gql_queries import TicketFilterSet, _ALWAYS_FILTERABLE
 from grievance_social_protection.models import Ticket
 from grievance_social_protection.tests.test_helpers import (
     setup_grievance_config, restore_grievance_config,
-    assign_rights_to_user, get_rights,
+    assign_rights_to_user, create_user_with_rights, get_rights,
 )
 
 
@@ -23,15 +21,9 @@ class TicketFilterSetRestrictedFieldsTest(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user_restricted = create_test_interactive_user(
-            username='fs_restricted', roles=[1]
-        )
-        cls.user_full = create_test_interactive_user(
-            username='fs_full', roles=[1]
-        )
-        cls.user_no_access = create_test_interactive_user(
-            username='fs_no_access', roles=[1]
-        )
+        cls.user_restricted = create_user_with_rights('fs_restricted', [], 'FSRestrictedRole')
+        cls.user_full = create_user_with_rights('fs_full', [], 'FSFullRole')
+        cls.user_no_access = create_user_with_rights('fs_no_access', [], 'FSNoAccessRole')
 
     def setUp(self):
         super().setUp()
@@ -137,12 +129,8 @@ class TicketFilterSetFilterQuerysetTest(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user_restricted = create_test_interactive_user(
-            username='fq_restricted', roles=[1]
-        )
-        cls.user_full = create_test_interactive_user(
-            username='fq_full', roles=[1]
-        )
+        cls.user_restricted = create_user_with_rights('fq_restricted', [], 'FQRestrictedRole')
+        cls.user_full = create_user_with_rights('fq_full', [], 'FQFullRole')
 
     def setUp(self):
         super().setUp()

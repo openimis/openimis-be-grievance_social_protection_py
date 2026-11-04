@@ -102,6 +102,23 @@ def assign_rights_to_user(user, right_ids, role_name=None):
     )
 
 
+def create_user_with_rights(username, right_ids, role_name):
+    """Create a user whose single role carries exactly ``right_ids``.
+
+    Use this rather than ``create_test_interactive_user(roles=[<id>])``: role
+    ids come from the demo dataset, so a literal id means a different role --
+    or none at all -- depending on which database the tests run against. Id 7
+    is ``LOCAL Administrator`` (is_system=64) in the seeded CI image, which
+    makes the user a superuser and bypasses the very rights checks these tests
+    exist to exercise; on a database migrated from scratch it does not exist,
+    and the user's tblUserRole row fails its foreign key.
+    """
+    role = create_test_role(perm_names=[], name=role_name)
+    user = create_test_interactive_user(username=username, roles=[role.id])
+    assign_rights_to_user(user, right_ids, role_name)
+    return user
+
+
 def get_rights(config_attr, name):
     """Get generated_rights dict for a category or flag from TicketConfig.
 

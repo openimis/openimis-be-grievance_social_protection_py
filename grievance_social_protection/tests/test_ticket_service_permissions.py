@@ -1,12 +1,12 @@
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from core.test_helpers import LogInHelper, create_test_interactive_user
+from core.test_helpers import LogInHelper
 from grievance_social_protection.services import TicketService
 from grievance_social_protection.models import Ticket
 from grievance_social_protection.tests.test_helpers import (
     setup_grievance_config, restore_grievance_config,
-    assign_rights_to_user, get_rights,
+    assign_rights_to_user, create_user_with_rights, get_rights,
 )
 
 
@@ -66,7 +66,7 @@ class TicketServicePermissionsTest(TestCase):
     def _create_test_users(cls):
         """Create test users with different permission levels"""
         # User with permissions for restricted category
-        cls.user_with_perms = create_test_interactive_user(username='user_with_perms', roles=[1])
+        cls.user_with_perms = create_user_with_rights('user_with_perms', [], 'SPWithPermsRole')
         cat_rights = get_rights('processed_categories', 'restricted_category')
         perms = []
         if cat_rights.get('read'):
@@ -76,10 +76,10 @@ class TicketServicePermissionsTest(TestCase):
         assign_rights_to_user(cls.user_with_perms, perms, 'SPWithPermsRole')
 
         # User without permissions
-        cls.user_no_perms = create_test_interactive_user(username='user_no_perms', roles=[1])
+        cls.user_no_perms = create_user_with_rights('user_no_perms', [], 'SPNoPermsRole')
 
         # User with flag permissions
-        cls.user_flag_perms = create_test_interactive_user(username='user_flag_perms', roles=[1])
+        cls.user_flag_perms = create_user_with_rights('user_flag_perms', [], 'SPFlagPermsRole')
         flag_rights = get_rights('processed_flags', 'sensitive')
         flag_perms = []
         if flag_rights.get('read'):
@@ -89,7 +89,7 @@ class TicketServicePermissionsTest(TestCase):
         assign_rights_to_user(cls.user_flag_perms, flag_perms, 'SPFlagPermsRole')
 
         # Anonymous-like user (no permissions)
-        cls.user_anon = create_test_interactive_user(username='user_anon', roles=[1])
+        cls.user_anon = create_user_with_rights('user_anon', [], 'SPAnonRole')
 
     def test_create_with_permissions_allowed(self):
         """Test ticket creation when user has required permissions"""

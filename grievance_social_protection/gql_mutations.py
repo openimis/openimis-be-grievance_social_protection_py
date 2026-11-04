@@ -10,7 +10,7 @@ from .apps import TicketConfig
 from django.utils.translation import gettext_lazy as _
 
 from .services import TicketService, CommentService
-from .validations import user_associated_with_ticket
+from .validations import user_attends_ticket
 
 
 class CreateTicketInputType(OpenIMISMutation.Input):
@@ -139,11 +139,19 @@ class CreateCommentMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
     @classmethod
     def _validate_mutation(cls, user, **data):
         super()._validate_mutation(user, **data)
-        if user.has_perms(TicketConfig.gql_mutation_delete_tickets_perms):
-            return
-        if user_associated_with_ticket(user):
-            return
-        raise ValidationError("mutation.authentication_required")
+        # The purpose built "create comment" right (127005), not "delete tickets"
+        # (127003): commenting on a grievance is not deleting one. The dedicated right
+        # was declared from the start and granted to imis_admin, but never checked -
+        # so the only way to earn commenting was to hold the ticket delete right.
+        # The right is required, and covers the tickets whose thread the user may
+        # read (Comment.get_queryset): visible ones, and the ones they attend.
+        # Attending a ticket grants nothing by itself.
+        ticket_id = data.get("ticket_id")
+        if not user.has_perms(TicketConfig.gql_mutation_create_comment_perms):
+            raise ValidationError("mutation.authentication_required")
+        if not (Ticket.get_queryset(None, user).filter(id=ticket_id).exists()
+                or user_attends_ticket(user, ticket_id)):
+            raise ValidationError("mutation.authentication_required")
 
     @classmethod
     def _mutate(cls, user, **data):

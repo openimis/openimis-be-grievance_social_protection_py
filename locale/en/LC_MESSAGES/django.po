@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-13 20:47+0200\n"
+"POT-Creation-Date: 2026-09-17 16:48+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,29 +17,90 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: grievance_social_protection/schema.py:41
-#: grievance_social_protection/schema.py:52
-#: grievance_social_protection/schema.py:72
-#: grievance_social_protection/schema.py:98
-#: grievance_social_protection/gql_mutations.py:50
-#: grievance_social_protection/gql_mutations.py:91
-#: grievance_social_protection/gql_queries.py:17
+#: grievance_social_protection/gql_mutations.py:64
+#: grievance_social_protection/gql_mutations.py:96
+#: grievance_social_protection/gql_queries.py:126
+#: grievance_social_protection/schema.py:65
+#: grievance_social_protection/schema.py:80
+#: grievance_social_protection/schema.py:109
+#: grievance_social_protection/schema.py:139
+#: grievance_social_protection/schema.py:141
 msgid "unauthorized"
 msgstr "Unauthorized"
 
-#: grievance_social_protection/validations.py:39
-msgid "validations.TicketValidation.validate_ticket_unique_code"
+#: grievance_social_protection/gql_queries.py:132
+#: grievance_social_protection/schema.py:59
+#, fuzzy
+#| msgid "unauthorized"
+msgid "Unauthorized"
+msgstr "Unauthorized"
+
+#: grievance_social_protection/tests/ticket_service_test.py:49
+#: grievance_social_protection/tests/ticket_service_test.py:87
+#: grievance_social_protection/validations.py:80
+#, fuzzy
+#| msgid "validations.TicketValidation.validate_ticket_unique_code"
+msgid "validations.TicketValidation.validate_resolution.invalid_format"
 msgstr "Ticket %(code) already exists."
 
-#: grievance_social_protection/validations.py:48
-msgid "validations.TicketValidation.validate_if_reporter_exists"
-msgstr "Reporter does not exist."
+#: grievance_social_protection/tests/ticket_service_test.py:55
+#: grievance_social_protection/tests/ticket_service_test.py:96
+#: grievance_social_protection/validations.py:86
+#, fuzzy
+#| msgid "validations.TicketValidation.validate_ticket_unique_code"
+msgid "validations.TicketValidation.validate_resolution.invalid_day_value"
+msgstr "Ticket %(code) already exists."
 
+#: grievance_social_protection/tests/ticket_service_test.py:61
+#: grievance_social_protection/tests/ticket_service_test.py:105
+#: grievance_social_protection/validations.py:88
+#, fuzzy
+#| msgid "validations.TicketValidation.validate_ticket_unique_code"
+msgid "validations.TicketValidation.validate_resolution.invalid_hour_value"
+msgstr "Ticket %(code) already exists."
+
+#: grievance_social_protection/validations.py:64
 msgid "validations.CommentValidation.validate_ticket_exists"
 msgstr "Ticket %(ticket_id) does not exist."
 
+#: grievance_social_protection/validations.py:99
 msgid "validations.CommentValidation.validate_commenter_exists"
 msgstr "Commenter does not exist."
 
+#: grievance_social_protection/validations.py:120
 msgid "validations.CommentValidation.commenter_not_associated_with_ticket"
 msgstr "Commenter not associated with ticket."
+
+#: grievance_social_protection/validations.py:141
+msgid "validations.TicketValidation.validate_ticket_unique_code"
+msgstr "Ticket %(code) already exists."
+
+#: grievance_social_protection/validations.py:151
+#, fuzzy
+#| msgid "validations.TicketValidation.validate_if_reporter_exists"
+msgid "validations.TicketValidation.invalid_reporter_type"
+msgstr "Reporter does not exist."
+
+#: grievance_social_protection/validations.py:156
+#, fuzzy
+#| msgid "validations.TicketValidation.validate_if_reporter_exists"
+msgid "validations.TicketValidation.reporter_type_invalid"
+msgstr "Reporter does not exist."
+
+#: grievance_social_protection/validations.py:161
+#, fuzzy
+#| msgid "validations.TicketValidation.validate_if_reporter_exists"
+msgid "validations.TicketValidation.reporter_not_found"
+msgstr "Reporter does not exist."
+
+#: grievance_social_protection/validations.py:167
+#, fuzzy
+#| msgid "validations.TicketValidation.validate_if_reporter_exists"
+msgid "validations.TicketValidation.reporter_type_required"
+msgstr "Reporter does not exist."
+
+#: grievance_social_protection/validations.py:169
+#, fuzzy
+#| msgid "validations.TicketValidation.validate_if_reporter_exists"
+msgid "validations.TicketValidation.reporter_id_required"
+msgstr "Reporter does not exist."

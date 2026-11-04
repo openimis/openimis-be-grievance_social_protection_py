@@ -19,7 +19,6 @@ from .gql_mutations import (
 )
 from .models import Ticket, Comment, TicketMutation
 from .apps import TicketConfig
-from .validations import user_associated_with_ticket
 from django.core.exceptions import PermissionDenied
 from django.utils.translation import gettext_lazy as _
 
@@ -55,10 +54,12 @@ class Query(graphene.ObjectType):
     def resolve_comments(self, info, **kwargs):
         user = info.context.user
 
-        if not (user_associated_with_ticket(user) or user.has_perms(TicketConfig.gql_query_comments_perms)):
+        # The comment right is required: attending a ticket grants nothing by itself.
+        # Which threads are readable is Comment.get_queryset.
+        if not user.has_perms(TicketConfig.gql_query_comments_perms):
             raise PermissionDenied(_("Unauthorized"))
 
-        return gql_optimizer.query(Comment.objects.all(), info)
+        return gql_optimizer.query(Comment.get_queryset(Comment.objects.all(), user), info)
 
     def resolve_ticket_details(self, info, **kwargs):
         if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
