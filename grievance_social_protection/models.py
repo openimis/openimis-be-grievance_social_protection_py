@@ -82,8 +82,8 @@ class Ticket(HistoryBusinessModel):
         return queryset
 
     @classmethod
-    def get_queryset(cls, queryset, user):
-        queryset = cls.filter_queryset(queryset)
+    def get_queryset(cls, queryset, user, *, validity=None, audits=None):
+        queryset = cls.apply_row_filters(queryset, validity, audits, default=cls.filter_queryset)
         if isinstance(user, ResolveInfo):
             user = user.context.user
         if settings.ROW_SECURITY and user.is_anonymous:
@@ -148,8 +148,8 @@ class Comment(HistoryModel):
         return queryset
 
     @classmethod
-    def get_queryset(cls, queryset, user):
-        queryset = cls.filter_queryset(queryset)
+    def get_queryset(cls, queryset, user, *, validity=None, audits=None):
+        queryset = cls.apply_row_filters(queryset, validity, audits, default=cls.filter_queryset)
         # GraphQL calls with an info object while Rest calls with the user itself
         if isinstance(user, ResolveInfo):
             user = user.context.user
