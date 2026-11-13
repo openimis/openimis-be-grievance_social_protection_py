@@ -7,7 +7,6 @@ import re
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction, IntegrityError
-from .apps import DEFAULT_CFG
 from .models import Ticket
 
 logger = logging.getLogger(__name__)
