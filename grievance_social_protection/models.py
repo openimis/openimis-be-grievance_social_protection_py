@@ -3,7 +3,7 @@ from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
-from graphql import ResolveInfo
+from graphql import GraphQLResolveInfo
 
 from core import models as core_models
 from core.models import HistoryBusinessModel, User, HistoryModel
@@ -84,7 +84,7 @@ class Ticket(HistoryBusinessModel):
     @classmethod
     def get_queryset(cls, queryset, user):
         queryset = cls.filter_queryset(queryset)
-        if isinstance(user, ResolveInfo):
+        if isinstance(user, GraphQLResolveInfo):
             user = user.context.user
         if settings.ROW_SECURITY and user.is_anonymous:
             return queryset.filter(id=None)
@@ -151,7 +151,7 @@ class Comment(HistoryModel):
     def get_queryset(cls, queryset, user):
         queryset = cls.filter_queryset(queryset)
         # GraphQL calls with an info object while Rest calls with the user itself
-        if isinstance(user, ResolveInfo):
+        if isinstance(user, GraphQLResolveInfo):
             user = user.context.user
         if settings.ROW_SECURITY and user.is_anonymous:
             return queryset.filter(id=None)

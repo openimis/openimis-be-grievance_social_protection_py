@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 from django.test import TestCase
 from django.conf import settings
-from graphql import ResolveInfo
+from graphql import GraphQLResolveInfo
 
 from grievance_social_protection.models import Ticket, Comment
 from grievance_social_protection.tests.test_helpers import (
@@ -224,7 +224,7 @@ class ModelSecurityTest(TestCase):
     def test_graphql_info_object_handling(self):
         """Test that GraphQL ResolveInfo objects are handled correctly"""
         # Create a mock ResolveInfo with user
-        mock_info = Mock(spec=ResolveInfo)
+        mock_info = Mock(spec=GraphQLResolveInfo)
         mock_info.context = Mock()
         mock_info.context.user = self.limited_user
 
@@ -241,7 +241,7 @@ class ModelSecurityTest(TestCase):
             self.assertEqual(filtered.count(), 1)
             self.assertTrue(
                 filtered.filter(id=self.tickets['public'].id).exists(),
-                "Should handle ResolveInfo object correctly"
+                "Should handle GraphQLResolveInfo object correctly"
             )
         finally:
             settings.ROW_SECURITY = original_setting
