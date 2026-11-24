@@ -6,7 +6,6 @@ from django_filters.constants import EMPTY_VALUES
 from django.db import models
 from graphene import ObjectType
 from graphene_django import DjangoObjectType
-from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.utils.translation import gettext as _
 
@@ -22,6 +21,18 @@ from .util import model_obj_to_json
 logger = logging.getLogger(__name__)
 
 RESTRICTED_VALUE = "[Restricted]"
+
+
+def _person_attr(target_type, target, attr):
+    """A name or birth date of an individual or beneficiary target, None for a user."""
+    if not target_type or not target:
+        return None
+    if target_type.name == 'individual':
+        return getattr(target, attr)
+    if target_type.name == 'beneficiary':
+        return getattr(target.individual, attr)
+    return None
+
 
 # Fields that are always safe to filter on regardless of access level
 _ALWAYS_FILTERABLE = frozenset({'id', 'version'})
@@ -121,14 +132,27 @@ class TicketFilterSet(django_filters.FilterSet):
         return restricted
 
 
+def _has_perms_in_request(info, perms):
+    # Every field of every row checks the same rights: decide once per request,
+    # as a rights check costs a query for a non-superuser.
+    checked = getattr(info.context, '_grievance_checked_perms', None)
+    if checked is None:
+        checked = {}
+        setattr(info.context, '_grievance_checked_perms', checked)
+    key = tuple(perms)
+    if key not in checked:
+        checked[key] = info.context.user.has_perms(perms)
+    return checked[key]
+
+
 def check_ticket_perms(info):
-    if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
+    if not _has_perms_in_request(info, TicketConfig.gql_query_tickets_perms):
         raise PermissionDenied(_("unauthorized"))
 
 
 def check_comment_perms(info):
     # Attending a ticket grants nothing by itself: the comment right is required.
-    if not info.context.user.has_perms(TicketConfig.gql_query_comments_perms):
+    if not _has_perms_in_request(info, TicketConfig.gql_query_comments_perms):
         raise PermissionDenied(_("Unauthorized"))
 
 
@@ -220,54 +244,21 @@ class TicketGQLType(DjangoObjectType):
         check_ticket_perms(info)
         if TicketGQLType._should_restrict_field('reporter_first_name', root, info):
             return RESTRICTED_VALUE
-        if root.reporter_type:
-            content_type = ContentType.objects.get_for_model(root.reporter_type.model_class())
-            if content_type:
-                model_object = content_type.get_object_for_this_type(pk=root.reporter_id)
-                if model_object:
-                    if root.reporter_type.name == 'individual':
-                        return model_object.first_name
-                    elif root.reporter_type.name == 'beneficiary':
-                        return model_object.individual.first_name
-                    elif root.reporter_type.name == 'user':
-                        return None
-        return None
+        return _person_attr(root.reporter_type, root.reporter, 'first_name')
 
     @staticmethod
     def resolve_reporter_last_name(root, info):
         check_ticket_perms(info)
         if TicketGQLType._should_restrict_field('reporter_last_name', root, info):
             return RESTRICTED_VALUE
-        if root.reporter_type:
-            content_type = ContentType.objects.get_for_model(root.reporter_type.model_class())
-            if content_type:
-                model_object = content_type.get_object_for_this_type(pk=root.reporter_id)
-                if model_object:
-                    if root.reporter_type.name == 'individual':
-                        return model_object.last_name
-                    elif root.reporter_type.name == 'beneficiary':
-                        return model_object.individual.last_name
-                    elif root.reporter_type.name == 'user':
-                        return None
-        return None
+        return _person_attr(root.reporter_type, root.reporter, 'last_name')
 
     @staticmethod
     def resolve_reporter_dob(root, info):
         check_ticket_perms(info)
         if TicketGQLType._should_restrict_field('reporter_dob', root, info):
             return None
-        if root.reporter_type:
-            content_type = ContentType.objects.get_for_model(root.reporter_type.model_class())
-            if content_type:
-                model_object = content_type.get_object_for_this_type(pk=root.reporter_id)
-                if model_object:
-                    if root.reporter_type.name == 'individual':
-                        return model_object.dob
-                    elif root.reporter_type.name == 'beneficiary':
-                        return model_object.individual.dob
-                    elif root.reporter_type.name == 'user':
-                        return None
-        return None
+        return _person_attr(root.reporter_type, root.reporter, 'dob')
 
     @staticmethod
     def resolve_description(root, info):
@@ -368,50 +359,17 @@ class CommentGQLType(ScopedQuerysetMixin, DjangoObjectType):
     @staticmethod
     def resolve_commenter_first_name(root, info):
         check_comment_perms(info)
-        if root.commenter_type:
-            content_type = ContentType.objects.get_for_model(root.commenter_type.model_class())
-            if content_type:
-                model_object = content_type.get_object_for_this_type(pk=root.commenter_id)
-                if model_object:
-                    if root.commenter_type.name == 'individual':
-                        return model_object.first_name
-                    elif root.commenter_type.name == 'beneficiary':
-                        return model_object.individual.first_name
-                    elif root.commenter_type.name == 'user':
-                        return None
-        return None
+        return _person_attr(root.commenter_type, root.commenter, 'first_name')
 
     @staticmethod
     def resolve_commenter_last_name(root, info):
         check_comment_perms(info)
-        if root.commenter_type:
-            content_type = ContentType.objects.get_for_model(root.commenter_type.model_class())
-            if content_type:
-                model_object = content_type.get_object_for_this_type(pk=root.commenter_id)
-                if model_object:
-                    if root.commenter_type.name == 'individual':
-                        return model_object.last_name
-                    elif root.commenter_type.name == 'beneficiary':
-                        return model_object.individual.last_name
-                    elif root.commenter_type.name == 'user':
-                        return None
-        return None
+        return _person_attr(root.commenter_type, root.commenter, 'last_name')
 
     @staticmethod
     def resolve_commenter_dob(root, info):
         check_comment_perms(info)
-        if root.commenter_type:
-            content_type = ContentType.objects.get_for_model(root.commenter_type.model_class())
-            if content_type:
-                model_object = content_type.get_object_for_this_type(pk=root.commenter_id)
-                if model_object:
-                    if root.commenter_type.name == 'individual':
-                        return model_object.dob
-                    elif root.commenter_type.name == 'beneficiary':
-                        return model_object.individual.dob
-                    elif root.commenter_type.name == 'user':
-                        return None
-        return None
+        return _person_attr(root.commenter_type, root.commenter, 'dob')
 
     class Meta:
         model = Comment

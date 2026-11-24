@@ -9,6 +9,7 @@ import graphene_django_optimizer as gql_optimizer
 from core.utils import append_validity_filter
 from .apps import MODULE_NAME
 from .access_control import GrievanceAccessControl
+from .gfk_outputs import prefetch_gfk_outputs
 
 from .gql_queries import (
     TicketGQLType, CommentGQLType, GrievanceTypeConfigurationGQLType,
@@ -59,7 +60,8 @@ class Query(graphene.ObjectType):
         if not user.has_perms(TicketConfig.gql_query_comments_perms):
             raise PermissionDenied(_("Unauthorized"))
 
-        return gql_optimizer.query(Comment.get_queryset(Comment.objects.all(), user), info)
+        return prefetch_gfk_outputs(
+            gql_optimizer.query(Comment.get_queryset(Comment.objects.all(), user), info), info, 'commenter')
 
     def resolve_ticket_details(self, info, **kwargs):
         if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
@@ -70,7 +72,7 @@ class Query(graphene.ObjectType):
         # Apply category and flag permission filtering
         query = GrievanceAccessControl.filter_ticket_queryset(query, info.context.user)
 
-        return gql_optimizer.query(query, info)
+        return prefetch_gfk_outputs(gql_optimizer.query(query, info), info, 'reporter')
 
     def resolve_tickets(self, info, **kwargs):
         """
@@ -99,7 +101,7 @@ class Query(graphene.ObjectType):
         # Apply category and flag permission filtering
         query = GrievanceAccessControl.filter_ticket_queryset(query, info.context.user)
 
-        return gql_optimizer.query(query, info)
+        return prefetch_gfk_outputs(gql_optimizer.query(query, info), info, 'reporter')
 
     def resolve_ticketsStr(self, info, **kwargs):
         """
@@ -128,7 +130,7 @@ class Query(graphene.ObjectType):
         # Apply category and flag permission filtering
         query = GrievanceAccessControl.filter_ticket_queryset(query, info.context.user)
 
-        return gql_optimizer.query(query, info)
+        return prefetch_gfk_outputs(gql_optimizer.query(query, info), info, 'reporter')
 
     # def resolve_claim_attachments(self, info, **kwargs):
     #     if not info.context.user.has_perms(TicketConfig.gql_query_tickets_perms):
