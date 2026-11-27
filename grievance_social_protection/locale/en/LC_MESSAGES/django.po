@@ -30,38 +30,30 @@ msgstr "Unauthorized"
 
 #: grievance_social_protection/gql_queries.py:132
 #: grievance_social_protection/schema.py:59
-#, fuzzy
-#| msgid "unauthorized"
 msgid "Unauthorized"
 msgstr "Unauthorized"
 
 #: grievance_social_protection/tests/ticket_service_test.py:49
 #: grievance_social_protection/tests/ticket_service_test.py:87
 #: grievance_social_protection/validations.py:80
-#, fuzzy
-#| msgid "validations.TicketValidation.validate_ticket_unique_code"
 msgid "validations.TicketValidation.validate_resolution.invalid_format"
-msgstr "Ticket %(code) already exists."
+msgstr "Resolution must be in the format 'days,hours'."
 
 #: grievance_social_protection/tests/ticket_service_test.py:55
 #: grievance_social_protection/tests/ticket_service_test.py:96
 #: grievance_social_protection/validations.py:86
-#, fuzzy
-#| msgid "validations.TicketValidation.validate_ticket_unique_code"
 msgid "validations.TicketValidation.validate_resolution.invalid_day_value"
-msgstr "Ticket %(code) already exists."
+msgstr "Resolution days must be between 0 and 98."
 
 #: grievance_social_protection/tests/ticket_service_test.py:61
 #: grievance_social_protection/tests/ticket_service_test.py:105
 #: grievance_social_protection/validations.py:88
-#, fuzzy
-#| msgid "validations.TicketValidation.validate_ticket_unique_code"
 msgid "validations.TicketValidation.validate_resolution.invalid_hour_value"
-msgstr "Ticket %(code) already exists."
+msgstr "Resolution hours must be between 0 and 23."
 
 #: grievance_social_protection/validations.py:64
 msgid "validations.CommentValidation.validate_ticket_exists"
-msgstr "Ticket %(ticket_id) does not exist."
+msgstr "Ticket %(ticket_id)s does not exist."
 
 #: grievance_social_protection/validations.py:99
 msgid "validations.CommentValidation.validate_commenter_exists"
@@ -73,34 +65,24 @@ msgstr "Commenter not associated with ticket."
 
 #: grievance_social_protection/validations.py:141
 msgid "validations.TicketValidation.validate_ticket_unique_code"
-msgstr "Ticket %(code) already exists."
+msgstr "Ticket %(code)s already exists."
 
 #: grievance_social_protection/validations.py:151
-#, fuzzy
-#| msgid "validations.TicketValidation.validate_if_reporter_exists"
 msgid "validations.TicketValidation.invalid_reporter_type"
-msgstr "Reporter does not exist."
+msgstr "Reporter type must be User or Individual."
 
 #: grievance_social_protection/validations.py:156
-#, fuzzy
-#| msgid "validations.TicketValidation.validate_if_reporter_exists"
 msgid "validations.TicketValidation.reporter_type_invalid"
-msgstr "Reporter does not exist."
+msgstr "Reporter type is not known."
 
 #: grievance_social_protection/validations.py:161
-#, fuzzy
-#| msgid "validations.TicketValidation.validate_if_reporter_exists"
 msgid "validations.TicketValidation.reporter_not_found"
 msgstr "Reporter does not exist."
 
 #: grievance_social_protection/validations.py:167
-#, fuzzy
-#| msgid "validations.TicketValidation.validate_if_reporter_exists"
 msgid "validations.TicketValidation.reporter_type_required"
-msgstr "Reporter does not exist."
+msgstr "Reporter type is required."
 
 #: grievance_social_protection/validations.py:169
-#, fuzzy
-#| msgid "validations.TicketValidation.validate_if_reporter_exists"
 msgid "validations.TicketValidation.reporter_id_required"
-msgstr "Reporter does not exist."
+msgstr "Reporter ID is required."

@@ -12,6 +12,9 @@ setup(
     version='1.1.0',
     packages=find_packages(),
     include_package_data=True,
+    # The .po catalogues ship with the package; the assembly compiles them
+    # (manage.py compilemessages) once the modules are installed.
+    package_data={'grievance_social_protection': ['locale/*/LC_MESSAGES/*.po']},
     license='GNU AGPL v3',
     description='Fork of the openIMIS Backend Grievance reference module.',
     # long_description=README,
