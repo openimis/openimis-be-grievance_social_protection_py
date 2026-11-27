@@ -32,7 +32,7 @@ class Ticket(HistoryBusinessModel):
     description = models.TextField(max_length=255, blank=True, null=True)
     code = models.CharField(max_length=16, unique=True, blank=True, null=True)
 
-    reporter_type = models.ForeignKey(ContentType, on_delete=models.DO_NOTHING, null=True, blank=True)
+    reporter_type = models.ForeignKey(ContentType, on_delete=models.DO_NOTHING, null=True, blank=True, db_index=False)
     reporter_id = models.CharField(max_length=255, null=True, blank=True)
     reporter = GenericForeignKey('reporter_type', 'reporter_id')
 
@@ -93,6 +93,12 @@ class Ticket(HistoryBusinessModel):
             queryset = GrievanceAccessControl.filter_ticket_queryset(queryset, user)
         return queryset
 
+    class Meta:
+        # Rows are looked up by their GenericForeignKey target (OP-3342).
+        indexes = [
+            models.Index(fields=['reporter_type', 'reporter_id'], name='ticket_reporter_gfk_idx'),
+        ]
+
 
 class TicketMutation(core_models.UUIDModel, core_models.ObjectMutation):
     ticket = models.ForeignKey(Ticket, models.DO_NOTHING,
@@ -113,7 +119,7 @@ class Comment(HistoryModel):
     # `ticket` is the only owning FK - `commenter` is a generic key to the author,
     # not to the object owned.
     scope_parent = "ticket"
-    commenter_type = models.ForeignKey(ContentType, on_delete=models.DO_NOTHING, null=True, blank=True)
+    commenter_type = models.ForeignKey(ContentType, on_delete=models.DO_NOTHING, null=True, blank=True, db_index=False)
     commenter_id = models.CharField(max_length=255, null=True, blank=True)
     commenter = GenericForeignKey('commenter_type', 'commenter_id')
     comment = models.TextField(blank=False, null=False)
@@ -168,6 +174,12 @@ class Comment(HistoryModel):
                 | models.Q(ticket__attending_staff=user)
             )
         return queryset
+
+    class Meta:
+        # Rows are looked up by their GenericForeignKey target (OP-3342).
+        indexes = [
+            models.Index(fields=['commenter_type', 'commenter_id'], name='comment_commenter_gfk_idx'),
+        ]
 
 
 # LEFT IF NEEDED IN THE FUTURE
